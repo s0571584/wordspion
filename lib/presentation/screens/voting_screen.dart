@@ -17,6 +17,7 @@ import 'package:wortspion/blocs/round/round_state.dart';
 import 'package:wortspion/data/models/player_role.dart';
 import 'package:wortspion/presentation/themes/app_colors.dart';
 import 'package:wortspion/presentation/themes/app_spacing.dart';
+import 'package:wortspion/core/utils/round_results_state.dart';
 
 @RoutePage()
 class VotingScreen extends StatefulWidget {
@@ -72,7 +73,7 @@ class _VotingScreenState extends State<VotingScreen> {
                 List<String> accusedPlayerIds = [];
                 if (votingState.mostVotedPlayer != null) {
                   accusedPlayerIds.add(votingState.mostVotedPlayer!.id);
-                  
+
                   // Determine if impostor was voted out
                   bool impostorWasVotedOut = false;
                   if (roundBlocCurrentState is RoundStarted) {
@@ -113,9 +114,9 @@ class _VotingScreenState extends State<VotingScreen> {
               print("[VotingScreen] RoundBloc listener received state: ${roundState.runtimeType}");
               if (roundState is RoundComplete) {
                 print("[VotingScreen] RoundComplete: Navigating to RoundResults screen...");
-                
-                // Navigate to new round results screen
-                context.router.replace(RoundResultsRoute(
+
+                // Store round results in state manager
+                RoundResultsState().setRoundResults(
                   gameId: widget.gameId,
                   roundNumber: roundState.roundNumber,
                   totalRounds: roundState.totalRounds,
@@ -124,7 +125,11 @@ class _VotingScreenState extends State<VotingScreen> {
                   secretWord: roundState.secretWord,
                   impostorsWon: roundState.impostorsWon,
                   wordGuessed: roundState.wordGuessed,
-                ));
+                );
+
+                // Navigate to new round results screen
+                context.router.replaceNamed(
+                    '/round-results?gameId=${widget.gameId}&roundNumber=${roundState.roundNumber}&totalRounds=${roundState.totalRounds}');
               } else if (roundState is RoundError) {
                 print("[VotingScreen] RoundError: ${roundState.message}");
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -189,7 +194,7 @@ class _VotingScreenState extends State<VotingScreen> {
                     '${currentVoter.name} ist an der Reihe',
                     style: Theme.of(buildContext).textTheme.headlineSmall,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.xs),
                   const Text(
                     'Wer ist deiner Meinung nach der Spion?',
                     style: TextStyle(fontSize: 16),
@@ -228,7 +233,7 @@ class _VotingScreenState extends State<VotingScreen> {
           if (widget.roundBloc.state is RoundStarted &&
               (widget.roundBloc.state as RoundStarted).playerRoles[currentVoter.id] == PlayerRoleType.impostor)
             Card(
-              margin: const EdgeInsets.only(bottom: AppSpacing.small),
+              margin: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: CheckboxListTile(
                 title: const Text('Ich kann das Geheimwort erraten'),
                 value: _wordGuessed && _wordGuesserId == currentVoter.id,
@@ -279,10 +284,9 @@ class _VotingScreenState extends State<VotingScreen> {
 
   Widget _buildVotingComplete(BuildContext blocContext) {
     // Check if we have spies and the roundBloc state is accessible
-    final hasSpies = widget.roundBloc.state is RoundStarted && 
-                     (widget.roundBloc.state as RoundStarted).playerRoles.values
-                         .contains(PlayerRoleType.impostor);
-    
+    final hasSpies =
+        widget.roundBloc.state is RoundStarted && (widget.roundBloc.state as RoundStarted).playerRoles.values.contains(PlayerRoleType.impostor);
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -291,7 +295,7 @@ class _VotingScreenState extends State<VotingScreen> {
           const Icon(
             Icons.how_to_vote,
             size: 64,
-            color: AppColors.success,
+            color: AppColors.team,
           ),
           const SizedBox(height: 16),
           Text(
@@ -301,9 +305,9 @@ class _VotingScreenState extends State<VotingScreen> {
           const SizedBox(height: 32),
           // Add "Skip to Results" option that will count as impostor win
           Card(
-            margin: const EdgeInsets.only(bottom: AppSpacing.medium),
+            margin: const EdgeInsets.only(bottom: AppSpacing.m),
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.medium),
+              padding: const EdgeInsets.all(AppSpacing.m),
               child: Column(
                 children: [
                   const Text(
@@ -321,7 +325,7 @@ class _VotingScreenState extends State<VotingScreen> {
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.m),
                   ElevatedButton(
                     onPressed: () {
                       // Skip to results - Impostors win by default
@@ -333,7 +337,7 @@ class _VotingScreenState extends State<VotingScreen> {
                       ));
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.warning,
+                      backgroundColor: AppColors.impostor,
                     ),
                     child: const Padding(
                       padding: EdgeInsets.all(12.0),

@@ -28,6 +28,12 @@ abstract class _$AppRouter extends RootStackRouter {
         ),
       );
     },
+    FinalResultsRoute.name: (routeData) {
+      return AutoRoutePage<dynamic>(
+        routeData: routeData,
+        child: const FinalResultsScreen(),
+      );
+    },
     GamePlayRoute.name: (routeData) {
       final args = routeData.argsAs<GamePlayRouteArgs>();
       return AutoRoutePage<dynamic>(
@@ -97,6 +103,23 @@ abstract class _$AppRouter extends RootStackRouter {
         ),
       );
     },
+    RoundResultsRoute.name: (routeData) {
+      final args = routeData.argsAs<RoundResultsRouteArgs>();
+      return AutoRoutePage<dynamic>(
+        routeData: routeData,
+        child: RoundResultsScreen(
+          key: args.key,
+          gameId: args.gameId,
+          roundNumber: args.roundNumber,
+          totalRounds: args.totalRounds,
+          scoreResults: args.scoreResults,
+          playerRoles: args.playerRoles,
+          secretWord: args.secretWord,
+          impostorsWon: args.impostorsWon,
+          wordGuessed: args.wordGuessed,
+        ),
+      );
+    },
     SplashRoute.name: (routeData) {
       return AutoRoutePage<dynamic>(
         routeData: routeData,
@@ -156,6 +179,20 @@ class CreateEditPlayerGroupRouteArgs {
   String toString() {
     return 'CreateEditPlayerGroupRouteArgs{key: $key, groupId: $groupId}';
   }
+}
+
+/// generated route for
+/// [FinalResultsScreen]
+class FinalResultsRoute extends PageRouteInfo<void> {
+  const FinalResultsRoute({List<PageRouteInfo>? children})
+      : super(
+          FinalResultsRoute.name,
+          initialChildren: children,
+        );
+
+  static const String name = 'FinalResultsRoute';
+
+  static const PageInfo<void> page = PageInfo<void>(name);
 }
 
 /// generated route for
@@ -399,6 +436,79 @@ class RoleRevealRouteArgs {
   @override
   String toString() {
     return 'RoleRevealRouteArgs{key: $key, gameId: $gameId}';
+  }
+}
+
+/// generated route for
+/// [RoundResultsScreen]
+class RoundResultsRoute extends PageRouteInfo<RoundResultsRouteArgs> {
+  RoundResultsRoute({
+    Key? key,
+    required String gameId,
+    required int roundNumber,
+    required int totalRounds,
+    required List<RoundScoreResult> scoreResults,
+    required List<PlayerRoleInfo> playerRoles,
+    required String secretWord,
+    required bool impostorsWon,
+    required bool wordGuessed,
+    List<PageRouteInfo>? children,
+  }) : super(
+          RoundResultsRoute.name,
+          args: RoundResultsRouteArgs(
+            key: key,
+            gameId: gameId,
+            roundNumber: roundNumber,
+            totalRounds: totalRounds,
+            scoreResults: scoreResults,
+            playerRoles: playerRoles,
+            secretWord: secretWord,
+            impostorsWon: impostorsWon,
+            wordGuessed: wordGuessed,
+          ),
+          initialChildren: children,
+        );
+
+  static const String name = 'RoundResultsRoute';
+
+  static const PageInfo<RoundResultsRouteArgs> page =
+      PageInfo<RoundResultsRouteArgs>(name);
+}
+
+class RoundResultsRouteArgs {
+  const RoundResultsRouteArgs({
+    this.key,
+    required this.gameId,
+    required this.roundNumber,
+    required this.totalRounds,
+    required this.scoreResults,
+    required this.playerRoles,
+    required this.secretWord,
+    required this.impostorsWon,
+    required this.wordGuessed,
+  });
+
+  final Key? key;
+
+  final String gameId;
+
+  final int roundNumber;
+
+  final int totalRounds;
+
+  final List<RoundScoreResult> scoreResults;
+
+  final List<PlayerRoleInfo> playerRoles;
+
+  final String secretWord;
+
+  final bool impostorsWon;
+
+  final bool wordGuessed;
+
+  @override
+  String toString() {
+    return 'RoundResultsRouteArgs{key: $key, gameId: $gameId, roundNumber: $roundNumber, totalRounds: $totalRounds, scoreResults: $scoreResults, playerRoles: $playerRoles, secretWord: $secretWord, impostorsWon: $impostorsWon, wordGuessed: $wordGuessed}';
   }
 }
 

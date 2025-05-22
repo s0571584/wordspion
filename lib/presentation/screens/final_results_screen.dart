@@ -11,7 +11,7 @@ import 'package:wortspion/presentation/widgets/app_button.dart';
 
 @RoutePage()
 class FinalResultsScreen extends StatelessWidget {
-  const FinalResultsScreen({Key? key}) : super(key: key);
+  const FinalResultsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +22,7 @@ class FinalResultsScreen extends StatelessWidget {
         } else if (state is GameLoading) {
           return _buildLoadingScreen();
         } else {
-          return _buildErrorScreen();
+          return _buildErrorScreen(context);
         }
       },
     );
@@ -30,14 +30,17 @@ class FinalResultsScreen extends StatelessWidget {
 
   Widget _buildCompletedScreen(BuildContext context, GameCompleted state) {
     final List<Player> players = state.players ?? [];
-    final sortedPlayers = players.isNotEmpty 
-        ? List<Player>.from(players)..sort((a, b) => b.score.compareTo(a.score))
-        : <Player>[];
-    
-    final String winnerName = state.winnerNames.isNotEmpty 
-        ? state.winnerNames.first 
-        : 'Unbekannt';
-    
+    final List<Player> sortedPlayers;
+    if (players.isNotEmpty) {
+      sortedPlayers = List<Player>.from(players);
+      sortedPlayers.sort((a, b) => b.score.compareTo(a.score));
+    } else {
+      sortedPlayers = <Player>[];
+    }
+
+    final String winnerName =
+        sortedPlayers.isNotEmpty ? sortedPlayers.first.name : (state.winnerNames.isNotEmpty ? state.winnerNames.first : 'Unbekannt');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Spielergebnisse'),
@@ -48,19 +51,19 @@ class FinalResultsScreen extends StatelessWidget {
         children: [
           // Winner announcement
           _buildWinnerCard(context, winnerName),
-          
+
           // Player rankings
           Expanded(
             child: _buildRankings(context, sortedPlayers),
           ),
-          
+
           // Return to main menu button
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.medium),
+            padding: const EdgeInsets.all(AppSpacing.m),
             child: AppButton(
-              label: 'Zurück zum Hauptmenü',
+              text: 'Zurück zum Hauptmenü',
               onPressed: () {
-                context.router.replace(const HomeRoute());
+                context.router.replaceNamed('/home');
               },
             ),
           ),
@@ -71,15 +74,15 @@ class FinalResultsScreen extends StatelessWidget {
 
   Widget _buildWinnerCard(BuildContext context, String winnerName) {
     return Card(
-      margin: const EdgeInsets.all(AppSpacing.medium),
-      color: AppColors.successBackground,
+      margin: const EdgeInsets.all(AppSpacing.m),
+      color: AppColors.team.withOpacity(0.1),
       elevation: 8,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.success.withOpacity(0.5), width: 2),
+        side: BorderSide(color: AppColors.team.withOpacity(0.5), width: 2),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.large),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           children: [
             const Text(
@@ -87,14 +90,14 @@ class FinalResultsScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: AppColors.successText,
+                color: AppColors.team,
               ),
             ),
-            const SizedBox(height: AppSpacing.medium),
+            const SizedBox(height: AppSpacing.m),
             Text(
               winnerName,
-              style: AppTypography.headline.copyWith(
-                color: AppColors.successText,
+              style: AppTypography.headline1.copyWith(
+                color: AppColors.team,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
@@ -111,22 +114,20 @@ class FinalResultsScreen extends StatelessWidget {
         child: Text('Keine Spielerdaten verfügbar'),
       );
     }
-    
+
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.medium),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
       itemCount: players.length,
       itemBuilder: (context, index) {
         final player = players[index];
         final isFirst = index == 0;
-        
+
         return Card(
-          margin: const EdgeInsets.only(bottom: AppSpacing.small),
-          color: isFirst 
-              ? AppColors.successBackground.withOpacity(0.3)
-              : null,
+          margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+          color: isFirst ? AppColors.team.withOpacity(0.3) : null,
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: isFirst ? AppColors.success : AppColors.secondary,
+              backgroundColor: isFirst ? AppColors.team : AppColors.accent,
               child: Text(
                 '${index + 1}',
                 style: TextStyle(
@@ -143,20 +144,18 @@ class FinalResultsScreen extends StatelessWidget {
             ),
             trailing: Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.medium,
-                vertical: AppSpacing.small,
+                horizontal: AppSpacing.m,
+                vertical: AppSpacing.xs,
               ),
               decoration: BoxDecoration(
-                color: isFirst
-                    ? AppColors.successBackground
-                    : AppColors.backgroundVariant,
+                color: isFirst ? AppColors.team.withOpacity(0.1) : AppColors.background,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '${player.score} Pkt.',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: isFirst ? AppColors.successText : Colors.black,
+                  color: isFirst ? AppColors.team : Colors.black,
                 ),
               ),
             ),
@@ -175,7 +174,7 @@ class FinalResultsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildErrorScreen() {
+  Widget _buildErrorScreen(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Fehler')),
       body: Center(
@@ -183,7 +182,7 @@ class FinalResultsScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('Fehler beim Laden der Ergebnisse'),
-            const SizedBox(height: AppSpacing.medium),
+            const SizedBox(height: AppSpacing.m),
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pushReplacementNamed('/home');

@@ -248,7 +248,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         players.sort((a, b) => b.score.compareTo(a.score));
         
         // Get winner details
-        final Player winner = players.first;
+        final Player winner = scoreCalculator.determineWinner(players);
         final Map<String, int> finalScores = await gameRepository.getFinalScores(game.id);
         
         final winnerNames = players.take(3).map((p) => p.name).toList();
@@ -256,6 +256,9 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         emit(GameCompleted(
           game: game.copyWith(state: DatabaseConstants.gameStateFinished),
           winnerNames: winnerNames,
+          players: players,
+          finalScores: finalScores,
+          winnerId: winner.id,
         ));
       } else {
         // Intermediate round - prepare next round
@@ -303,12 +306,18 @@ class GameBloc extends Bloc<GameEvent, GameState> {
 
       final players = await gameRepository.getPlayersByGameId(game.id);
       players.sort((a, b) => b.score.compareTo(a.score));
+      
+      final Player winner = scoreCalculator.determineWinner(players);
+      final Map<String, int> finalScores = await gameRepository.getFinalScores(game.id);
 
       final winnerNames = players.take(3).map((p) => p.name).toList();
 
       emit(GameCompleted(
         game: game.copyWith(state: DatabaseConstants.gameStateFinished),
         winnerNames: winnerNames,
+        players: players,
+        finalScores: finalScores,
+        winnerId: winner.id,
       ));
     } catch (e) {
       emit(GameError('Fehler beim Abschließen des Spiels: $e'));

@@ -211,15 +211,43 @@ class DatabaseHelper {
       // Upgrade to version 2: Add Player Groups tables
       await _createPlayerGroupTablesV2(db);
     }
+    if (oldVersion < 3) {
+      // Upgrade to version 3: Update round_results table for scoring system
+      await _updateRoundResultsTableV3(db);
+    }
     // Add more upgrade steps here for future versions, e.g.:
-    // if (oldVersion < 3) {
+    // if (oldVersion < 4) {
     //   await db.execute('ALTER TABLE some_table ADD COLUMN new_column TEXT');
     // }
   }
 
+  // Helper method to update round_results table for v3 (scoring system)
+  Future<void> _updateRoundResultsTableV3(Database db) async {
+    // Drop the old table and recreate with new schema
+    await db.execute('DROP TABLE IF EXISTS ${DatabaseConstants.tableRoundResults}');
+    
+    // Create the new round_results table with scoring fields
+    await db.execute('''
+      CREATE TABLE ${DatabaseConstants.tableRoundResults} (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL,
+        player_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        score_change INTEGER NOT NULL,
+        total_score INTEGER NOT NULL,
+        is_spy INTEGER NOT NULL,
+        reason TEXT,
+        impostors_won INTEGER DEFAULT 0,
+        word_guessed INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (round_id) REFERENCES ${DatabaseConstants.tableRounds}(id),
+        FOREIGN KEY (player_id) REFERENCES ${DatabaseConstants.tablePlayers}(id)
+      )
+    ''');
+  }
+  
   // Helper method to create player group tables, used in onCreate and onUpgrade
   Future<void> _createPlayerGroupTablesV2(Database db) async {
-    // Tabelle player_groups erstellen
     await db.execute('''
       CREATE TABLE ${DatabaseConstants.tablePlayerGroups} (
         id TEXT PRIMARY KEY,

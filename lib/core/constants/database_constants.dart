@@ -4,7 +4,7 @@ class DatabaseConstants {
 
   // Datenbank-Informationen
   static const String databaseName = 'wortspion.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
 
   // Tabellennamen
   static const String tableCategories = 'categories';
