@@ -225,7 +225,7 @@ class DatabaseHelper {
   Future<void> _updateRoundResultsTableV3(Database db) async {
     // Drop the old table and recreate with new schema
     await db.execute('DROP TABLE IF EXISTS ${DatabaseConstants.tableRoundResults}');
-    
+
     // Create the new round_results table with scoring fields
     await db.execute('''
       CREATE TABLE ${DatabaseConstants.tableRoundResults} (
@@ -245,7 +245,7 @@ class DatabaseHelper {
       )
     ''');
   }
-  
+
   // Helper method to create player group tables, used in onCreate and onUpgrade
   Future<void> _createPlayerGroupTablesV2(Database db) async {
     await db.execute('''

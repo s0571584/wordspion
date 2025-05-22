@@ -18,6 +18,8 @@ import 'package:wortspion/data/models/player_role.dart';
 import 'package:wortspion/presentation/themes/app_colors.dart';
 import 'package:wortspion/presentation/themes/app_spacing.dart';
 import 'package:wortspion/core/utils/round_results_state.dart';
+import 'package:wortspion/blocs/game/game_bloc.dart';
+import 'package:wortspion/presentation/screens/round_results_screen.dart';
 
 @RoutePage()
 class VotingScreen extends StatefulWidget {
@@ -128,8 +130,18 @@ class _VotingScreenState extends State<VotingScreen> {
                 );
 
                 // Navigate to new round results screen
-                context.router.replaceNamed(
-                    '/round-results?gameId=${widget.gameId}&roundNumber=${roundState.roundNumber}&totalRounds=${roundState.totalRounds}');
+                context.router.replace(
+                  RoundResultsRoute(
+                    gameId: widget.gameId,
+                    roundNumber: roundState.roundNumber,
+                    totalRounds: roundState.totalRounds,
+                    scoreResults: roundState.scoreResults,
+                    playerRoles: roundState.playerRoles,
+                    secretWord: roundState.secretWord,
+                    impostorsWon: roundState.impostorsWon,
+                    wordGuessed: roundState.wordGuessed,
+                  ),
+                );
               } else if (roundState is RoundError) {
                 print("[VotingScreen] RoundError: ${roundState.message}");
                 ScaffoldMessenger.of(context).showSnackBar(

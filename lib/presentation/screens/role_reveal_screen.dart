@@ -76,9 +76,10 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
         print("RoleRevealScreen: Using game's impostorCount=${_currentGame!.impostorCount} from database");
 
         // Start the round
+        final nextRoundNumber = (_currentGame?.currentRound ?? 0) + 1;
         _roundBloc.add(round_events.StartRound(
           gameId: widget.gameId,
-          roundNumber: 1,
+          roundNumber: nextRoundNumber,
           playerCount: _currentGame!.playerCount,
           impostorCount: _currentGame!.impostorCount,
         ));
@@ -199,9 +200,10 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
+                final nextRoundNumber = (_currentGame?.currentRound ?? 0) + 1;
                 _roundBloc.add(round_events.StartRound(
                   gameId: widget.gameId,
-                  roundNumber: 1,
+                  roundNumber: nextRoundNumber,
                   playerCount: _currentGame!.playerCount,
                   impostorCount: _currentGame!.impostorCount,
                 ));

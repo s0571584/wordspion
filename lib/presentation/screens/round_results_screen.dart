@@ -11,9 +11,11 @@ import 'package:wortspion/presentation/themes/app_spacing.dart';
 import 'package:wortspion/presentation/themes/app_typography.dart';
 import 'package:wortspion/presentation/widgets/app_button.dart';
 import 'package:wortspion/core/utils/round_results_state.dart';
+import 'package:get_it/get_it.dart';
+import 'package:wortspion/blocs/game/game_state.dart';
 
 @RoutePage()
-class RoundResultsScreen extends StatelessWidget {
+class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
   final String gameId;
   final int roundNumber;
   final int totalRounds;
@@ -36,34 +38,76 @@ class RoundResultsScreen extends StatelessWidget {
   });
 
   @override
+  Widget wrappedRoute(BuildContext context) {
+    return BlocProvider(
+      create: (_) => GetIt.I<GameBloc>(),
+      child: this,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Runde $roundNumber Ergebnisse'),
-        // Disable the back button
-        automaticallyImplyLeading: false,
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header with round information
-          _buildRoundHeader(context),
-
-          // Outcome card
-          _buildOutcomeCard(context),
-
-          // Secret word reveal
-          _buildSecretWordCard(context),
-
-          // Player scores list
-          Expanded(
-            child: _buildScoresList(context),
+    return BlocConsumer<GameBloc, GameState>(
+      listener: (context, state) {
+        print('=== RoundResultsScreen: State change ===');
+        print('New state: ${state.runtimeType}');
+        
+        if (state is GameCompleted) {
+          print('GameCompleted received - navigating to final results');
+          print('Players: ${state.players?.length ?? 0}');
+          print('Winner names: ${state.winnerNames}');
+          
+          // Navigate to final results with the completion data
+          context.router.replace(
+            FinalResultsRoute(
+              players: state.players ?? [],
+              winnerNames: state.winnerNames,
+              gameId: gameId,
+            ),
+          );
+        } else if (state is GameError) {
+          print('GameError received: ${state.message}');
+          // Show error message if game completion fails
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Fehler: ${state.message}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        } else if (state is GameLoading) {
+          print('GameLoading state received');
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Runde $roundNumber Ergebnisse'),
+            // Disable the back button
+            automaticallyImplyLeading: false,
           ),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header with round information
+              _buildRoundHeader(context),
 
-          // Next round / Final results button
-          _buildNavigationButton(context),
-        ],
-      ),
+              // Outcome card
+              _buildOutcomeCard(context),
+
+              // Secret word reveal
+              _buildSecretWordCard(context),
+
+              // Player scores list
+              Expanded(
+                child: _buildScoresList(context),
+              ),
+
+              // Next round / Final results button
+              _buildNavigationButton(context, state),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -222,19 +266,28 @@ class RoundResultsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNavigationButton(BuildContext context) {
+  Widget _buildNavigationButton(BuildContext context, GameState state) {
     final isLastRound = roundNumber >= totalRounds;
-    final buttonText = isLastRound ? 'Endergebnisse anzeigen' : 'Nächste Runde';
+    final isLoading = state is GameLoading;
+    
+    String buttonText;
+    if (isLastRound) {
+      buttonText = isLoading ? 'Verarbeitung...' : 'Endergebnisse anzeigen';
+    } else {
+      buttonText = 'Nächste Runde';
+    }
 
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.m),
       child: AppButton(
         text: buttonText,
-        onPressed: () {
+        isLoading: isLoading,
+        onPressed: isLoading ? null : () {
           if (isLastRound) {
-            // Game is complete, navigate to final results
+            print('=== RoundResultsScreen: Completing game ===');
+            print('Dispatching CompleteGame event for gameId: $gameId');
+            // Game is complete, dispatch event and wait for listener to navigate
             context.read<GameBloc>().add(CompleteGame(gameId: gameId));
-            context.router.replaceNamed('/final-results');
           } else {
             // Move to next round
             context.read<GameBloc>().add(
@@ -244,7 +297,7 @@ class RoundResultsScreen extends StatelessWidget {
                   ),
                 );
             // Navigate to next role reveal screen
-            context.router.replaceNamed('/role-reveal?gameId=$gameId');
+            context.router.replace(RoleRevealRoute(gameId: gameId));
           }
         },
       ),

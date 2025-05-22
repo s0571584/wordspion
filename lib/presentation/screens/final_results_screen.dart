@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:auto_route/auto_route.dart';
-import 'package:wortspion/blocs/game/game_bloc.dart';
-import 'package:wortspion/blocs/game/game_state.dart';
 import 'package:wortspion/data/models/player.dart';
 import 'package:wortspion/presentation/themes/app_colors.dart';
 import 'package:wortspion/presentation/themes/app_spacing.dart';
@@ -11,25 +8,23 @@ import 'package:wortspion/presentation/widgets/app_button.dart';
 
 @RoutePage()
 class FinalResultsScreen extends StatelessWidget {
-  const FinalResultsScreen({super.key});
+  final List<Player> players;
+  final List<String> winnerNames;
+  final String gameId;
+  
+  const FinalResultsScreen({
+    super.key,
+    required this.players,
+    required this.winnerNames,
+    required this.gameId,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<GameBloc, GameState>(
-      builder: (context, state) {
-        if (state is GameCompleted) {
-          return _buildCompletedScreen(context, state);
-        } else if (state is GameLoading) {
-          return _buildLoadingScreen();
-        } else {
-          return _buildErrorScreen(context);
-        }
-      },
-    );
+    return _buildCompletedScreen(context);
   }
 
-  Widget _buildCompletedScreen(BuildContext context, GameCompleted state) {
-    final List<Player> players = state.players ?? [];
+  Widget _buildCompletedScreen(BuildContext context) {
     final List<Player> sortedPlayers;
     if (players.isNotEmpty) {
       sortedPlayers = List<Player>.from(players);
@@ -39,7 +34,7 @@ class FinalResultsScreen extends StatelessWidget {
     }
 
     final String winnerName =
-        sortedPlayers.isNotEmpty ? sortedPlayers.first.name : (state.winnerNames.isNotEmpty ? state.winnerNames.first : 'Unbekannt');
+        sortedPlayers.isNotEmpty ? sortedPlayers.first.name : (winnerNames.isNotEmpty ? winnerNames.first : 'Unbekannt');
 
     return Scaffold(
       appBar: AppBar(
@@ -165,33 +160,4 @@ class FinalResultsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLoadingScreen() {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Spielergebnisse')),
-      body: const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
-  }
-
-  Widget _buildErrorScreen(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Fehler')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Fehler beim Laden der Ergebnisse'),
-            const SizedBox(height: AppSpacing.m),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pushReplacementNamed('/home');
-              },
-              child: const Text('Zurück zum Hauptmenü'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

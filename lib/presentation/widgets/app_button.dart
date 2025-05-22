@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 
 class AppButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Color? backgroundColor;
   final Color? textColor;
   final double horizontalPadding;
   final double verticalPadding;
   final bool isFullWidth;
   final IconData? icon;
+  final bool isLoading;
 
   const AppButton({
     super.key,
@@ -20,6 +21,7 @@ class AppButton extends StatelessWidget {
     this.verticalPadding = 16.0,
     this.isFullWidth = false,
     this.icon,
+    this.isLoading = false,
   });
 
   @override
@@ -38,41 +40,54 @@ class AppButton extends StatelessWidget {
       ),
     );
 
-    final buttonChild = icon != null
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                text,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          )
-        : Text(
+    Widget buttonChild;
+    
+    if (isLoading) {
+      buttonChild = const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        ),
+      );
+    } else if (icon != null) {
+      buttonChild = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 8),
+          Text(
             text,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
-          );
+          ),
+        ],
+      );
+    } else {
+      buttonChild = Text(
+        text,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
 
     return isFullWidth
         ? SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               style: buttonStyle,
-              onPressed: onPressed,
+              onPressed: isLoading ? null : onPressed,
               child: buttonChild,
             ),
           )
         : ElevatedButton(
             style: buttonStyle,
-            onPressed: onPressed,
+            onPressed: isLoading ? null : onPressed,
             child: buttonChild,
           );
   }

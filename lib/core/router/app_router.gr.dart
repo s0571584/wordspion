@@ -29,9 +29,15 @@ abstract class _$AppRouter extends RootStackRouter {
       );
     },
     FinalResultsRoute.name: (routeData) {
+      final args = routeData.argsAs<FinalResultsRouteArgs>();
       return AutoRoutePage<dynamic>(
         routeData: routeData,
-        child: const FinalResultsScreen(),
+        child: FinalResultsScreen(
+          key: args.key,
+          players: args.players,
+          winnerNames: args.winnerNames,
+          gameId: args.gameId,
+        ),
       );
     },
     GamePlayRoute.name: (routeData) {
@@ -107,7 +113,8 @@ abstract class _$AppRouter extends RootStackRouter {
       final args = routeData.argsAs<RoundResultsRouteArgs>();
       return AutoRoutePage<dynamic>(
         routeData: routeData,
-        child: RoundResultsScreen(
+        child: WrappedRoute(
+            child: RoundResultsScreen(
           key: args.key,
           gameId: args.gameId,
           roundNumber: args.roundNumber,
@@ -117,7 +124,7 @@ abstract class _$AppRouter extends RootStackRouter {
           secretWord: args.secretWord,
           impostorsWon: args.impostorsWon,
           wordGuessed: args.wordGuessed,
-        ),
+        )),
       );
     },
     SplashRoute.name: (routeData) {
@@ -183,16 +190,50 @@ class CreateEditPlayerGroupRouteArgs {
 
 /// generated route for
 /// [FinalResultsScreen]
-class FinalResultsRoute extends PageRouteInfo<void> {
-  const FinalResultsRoute({List<PageRouteInfo>? children})
-      : super(
+class FinalResultsRoute extends PageRouteInfo<FinalResultsRouteArgs> {
+  FinalResultsRoute({
+    Key? key,
+    required List<Player> players,
+    required List<String> winnerNames,
+    required String gameId,
+    List<PageRouteInfo>? children,
+  }) : super(
           FinalResultsRoute.name,
+          args: FinalResultsRouteArgs(
+            key: key,
+            players: players,
+            winnerNames: winnerNames,
+            gameId: gameId,
+          ),
           initialChildren: children,
         );
 
   static const String name = 'FinalResultsRoute';
 
-  static const PageInfo<void> page = PageInfo<void>(name);
+  static const PageInfo<FinalResultsRouteArgs> page =
+      PageInfo<FinalResultsRouteArgs>(name);
+}
+
+class FinalResultsRouteArgs {
+  const FinalResultsRouteArgs({
+    this.key,
+    required this.players,
+    required this.winnerNames,
+    required this.gameId,
+  });
+
+  final Key? key;
+
+  final List<Player> players;
+
+  final List<String> winnerNames;
+
+  final String gameId;
+
+  @override
+  String toString() {
+    return 'FinalResultsRouteArgs{key: $key, players: $players, winnerNames: $winnerNames, gameId: $gameId}';
+  }
 }
 
 /// generated route for

@@ -289,29 +289,45 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     CompleteGame event,
     Emitter<GameState> emit,
   ) async {
+    print('=== GameBloc: _onCompleteGame START ===');
+    print('Game ID: ${event.gameId}');
+    
     emit(GameLoading());
 
     try {
+      print('Updating game state to FINISHED...');
       await gameRepository.updateGameState(
         event.gameId,
         DatabaseConstants.gameStateFinished,
       );
+      print('Game state updated successfully');
 
       final game = await gameRepository.getGameById(event.gameId);
+      print('Retrieved game after update: ${game?.state}');
 
       if (game == null) {
+        print('ERROR: Game not found after completion');
         emit(const GameError('Spiel nicht gefunden'));
         return;
       }
 
+      print('Loading players for final scores...');
       final players = await gameRepository.getPlayersByGameId(game.id);
+      print('Found ${players.length} players');
+      
       players.sort((a, b) => b.score.compareTo(a.score));
       
+      print('Determining winner...');
       final Player winner = scoreCalculator.determineWinner(players);
+      print('Winner: ${winner.name} with ${winner.score} points');
+      
       final Map<String, int> finalScores = await gameRepository.getFinalScores(game.id);
+      print('Final scores loaded: $finalScores');
 
       final winnerNames = players.take(3).map((p) => p.name).toList();
+      print('Top 3 winners: $winnerNames');
 
+      print('Emitting GameCompleted state...');
       emit(GameCompleted(
         game: game.copyWith(state: DatabaseConstants.gameStateFinished),
         winnerNames: winnerNames,
@@ -319,7 +335,11 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         finalScores: finalScores,
         winnerId: winner.id,
       ));
+      print('=== GameBloc: _onCompleteGame COMPLETED ===');
     } catch (e) {
+      print('=== GameBloc: _onCompleteGame ERROR ===');
+      print('Error: $e');
+      print('Stack trace: ${StackTrace.current}');
       emit(GameError('Fehler beim Abschließen des Spiels: $e'));
     }
   }

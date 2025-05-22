@@ -5,6 +5,7 @@ import 'package:wortspion/data/models/player.dart';
 import 'package:wortspion/data/models/round_score_result.dart';
 import 'package:wortspion/data/repositories/game_repository.dart';
 import 'package:wortspion/data/sources/local/database_helper.dart';
+import 'package:sqflite/sqflite.dart';
 
 class GameRepositoryImpl implements GameRepository {
   final DatabaseHelper databaseHelper;
@@ -178,7 +179,7 @@ class GameRepositoryImpl implements GameRepository {
       );
     });
   }
-  
+
   @override
   Future<void> updatePlayerScores(List<RoundScoreResult> scoreResults) async {
     await databaseHelper.runTransaction((txn) async {
@@ -192,51 +193,55 @@ class GameRepositoryImpl implements GameRepository {
       }
     });
   }
-  
+
   @override
   Future<void> saveRoundResults(String gameId, int roundNumber, List<RoundScoreResult> results) async {
-    final roundId = 'round_${gameId}_${roundNumber}';
+    final roundId = 'round_${gameId}_$roundNumber';
     final batch = await databaseHelper.database.then((db) => db.batch());
-    
+
     for (final result in results) {
-      batch.insert(DatabaseConstants.tableRoundResults, {
-        'id': '${roundId}_${result.playerId}',
-        'round_id': roundId,
-        'player_id': result.playerId,
-        'player_name': result.playerName,
-        'score_change': result.scoreChange,
-        'total_score': result.totalScore,
-        'is_spy': result.isSpy ? 1 : 0,
-        'reason': result.reason,
-        'created_at': DateTime.now().millisecondsSinceEpoch,
-      });
+      batch.insert(
+        DatabaseConstants.tableRoundResults,
+        {
+          'id': '${roundId}_${result.playerId}',
+          'round_id': roundId,
+          'player_id': result.playerId,
+          'player_name': result.playerName,
+          'score_change': result.scoreChange,
+          'total_score': result.totalScore,
+          'is_spy': result.isSpy ? 1 : 0,
+          'reason': result.reason,
+          'created_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
-    
+
     await batch.commit(noResult: true);
   }
-  
+
   @override
   Future<List<RoundScoreResult>> getRoundResults(String gameId, int roundNumber) async {
-    final roundId = 'round_${gameId}_${roundNumber}';
+    final roundId = 'round_${gameId}_$roundNumber';
     final results = await databaseHelper.query(
       DatabaseConstants.tableRoundResults,
       where: 'round_id = ?',
       whereArgs: [roundId],
       orderBy: 'created_at ASC',
     );
-    
+
     return results.map((result) => RoundScoreResult.fromMap(result)).toList();
   }
-  
+
   @override
   Future<Map<String, int>> getFinalScores(String gameId) async {
     final players = await getPlayersByGameId(gameId);
     final Map<String, int> finalScores = {};
-    
+
     for (final player in players) {
       finalScores[player.id] = player.score;
     }
-    
+
     return finalScores;
   }
 }
