@@ -15,6 +15,21 @@ abstract class _$AppRouter extends RootStackRouter {
 
   @override
   final Map<String, PageFactory> pagesMap = {
+    CategorySelectionRoute.name: (routeData) {
+      final args = routeData.argsAs<CategorySelectionRouteArgs>();
+      return AutoRoutePage<dynamic>(
+        routeData: routeData,
+        child: CategorySelectionScreen(
+          key: args.key,
+          playerCount: args.playerCount,
+          impostorCount: args.impostorCount,
+          roundCount: args.roundCount,
+          timerDuration: args.timerDuration,
+          impostorsKnowEachOther: args.impostorsKnowEachOther,
+          groupPlayerNames: args.groupPlayerNames,
+        ),
+      );
+    },
     CreateEditPlayerGroupRoute.name: (routeData) {
       final queryParams = routeData.queryParams;
       final args = routeData.argsAs<CreateEditPlayerGroupRouteArgs>(
@@ -96,6 +111,7 @@ abstract class _$AppRouter extends RootStackRouter {
           mostVotedPlayer: args.mostVotedPlayer,
           playerRoles: args.playerRoles,
           secretWord: args.secretWord,
+          gameId: args.gameId,
         ),
       );
     },
@@ -146,6 +162,63 @@ abstract class _$AppRouter extends RootStackRouter {
       );
     },
   };
+}
+
+/// generated route for
+/// [CategorySelectionScreen]
+class CategorySelectionRoute extends PageRouteInfo<CategorySelectionRouteArgs> {
+  CategorySelectionRoute({
+    Key? key,
+    required int playerCount,
+    required int impostorCount,
+    required int roundCount,
+    required int timerDuration,
+    required bool impostorsKnowEachOther,
+    List<String>? groupPlayerNames,
+    List<PageRouteInfo>? children,
+  }) : super(
+          CategorySelectionRoute.name,
+          args: CategorySelectionRouteArgs(
+            key: key,
+            playerCount: playerCount,
+            impostorCount: impostorCount,
+            roundCount: roundCount,
+            timerDuration: timerDuration,
+            impostorsKnowEachOther: impostorsKnowEachOther,
+            groupPlayerNames: groupPlayerNames,
+          ),
+          initialChildren: children,
+        );
+
+  static const String name = 'CategorySelectionRoute';
+
+  static const PageInfo<CategorySelectionRouteArgs> page =
+      PageInfo<CategorySelectionRouteArgs>(name);
+}
+
+class CategorySelectionRouteArgs {
+  const CategorySelectionRouteArgs({
+    this.key,
+    required this.playerCount,
+    required this.impostorCount,
+    required this.roundCount,
+    required this.timerDuration,
+    required this.impostorsKnowEachOther,
+    this.groupPlayerNames,
+  });
+
+  final Key? key;
+  final int playerCount;
+  final int impostorCount;
+  final int roundCount;
+  final int timerDuration;
+  final bool impostorsKnowEachOther;
+  final List<String>? groupPlayerNames;
+
+  @override
+  String toString() {
+    return 'CategorySelectionRouteArgs{key: $key, playerCount: $playerCount, impostorCount: $impostorCount, roundCount: $roundCount, timerDuration: $timerDuration, impostorsKnowEachOther: $impostorsKnowEachOther, groupPlayerNames: $groupPlayerNames}';
+  }
 }
 
 /// generated route for
@@ -398,6 +471,7 @@ class ResultsRoute extends PageRouteInfo<ResultsRouteArgs> {
     Player? mostVotedPlayer,
     required List<PlayerRoleInfo> playerRoles,
     required String secretWord,
+    required String gameId,
     List<PageRouteInfo>? children,
   }) : super(
           ResultsRoute.name,
@@ -407,6 +481,7 @@ class ResultsRoute extends PageRouteInfo<ResultsRouteArgs> {
             mostVotedPlayer: mostVotedPlayer,
             playerRoles: playerRoles,
             secretWord: secretWord,
+            gameId: gameId,
           ),
           initialChildren: children,
         );
@@ -424,6 +499,7 @@ class ResultsRouteArgs {
     this.mostVotedPlayer,
     required this.playerRoles,
     required this.secretWord,
+    required this.gameId,
   });
 
   final Key? key;
@@ -435,10 +511,12 @@ class ResultsRouteArgs {
   final List<PlayerRoleInfo> playerRoles;
 
   final String secretWord;
+  
+  final String gameId;
 
   @override
   String toString() {
-    return 'ResultsRouteArgs{key: $key, votingResults: $votingResults, mostVotedPlayer: $mostVotedPlayer, playerRoles: $playerRoles, secretWord: $secretWord}';
+    return 'ResultsRouteArgs{key: $key, votingResults: $votingResults, mostVotedPlayer: $mostVotedPlayer, playerRoles: $playerRoles, secretWord: $secretWord, gameId: $gameId}';
   }
 }
 

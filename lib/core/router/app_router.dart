@@ -18,7 +18,7 @@ import 'package:wortspion/presentation/screens/round_results_screen.dart';
 import 'package:wortspion/presentation/screens/final_results_screen.dart';
 import 'package:wortspion/presentation/screens/player_groups_screen.dart';
 import 'package:wortspion/presentation/screens/create_edit_player_group_screen.dart';
-import 'package:wortspion/core/utils/round_results_state.dart';
+import 'package:wortspion/presentation/screens/category_selection_screen.dart';
 
 part 'app_router.gr.dart';
 
@@ -29,6 +29,7 @@ class AppRouter extends _$AppRouter {
         AutoRoute(page: SplashRoute.page, initial: true),
         AutoRoute(page: HomeRoute.page, path: '/home'),
         AutoRoute(page: GameSetupRoute.page, path: '/game-setup'),
+        AutoRoute(page: CategorySelectionRoute.page, path: '/category-selection'),
         AutoRoute(page: PlayerRegistrationRoute.page, path: '/player-registration'),
         AutoRoute(page: RoleRevealRoute.page, path: '/role-reveal'),
         AutoRoute(page: GamePlayRoute.page, path: '/game-play'),

@@ -33,6 +33,15 @@ abstract class GameRepository {
 
   Future<void> deleteGame(String id);
   
+  Future<Game> createGameWithCategories({
+    required int playerCount,
+    required int impostorCount,
+    required int roundCount,
+    required int timerDuration,
+    required bool impostorsKnowEachOther,
+    required List<String> selectedCategoryIds,
+  });
+  
   Future<void> updatePlayerScores(List<RoundScoreResult> scoreResults);
   
   Future<void> saveRoundResults(String gameId, int roundNumber, List<RoundScoreResult> results);

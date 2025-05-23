@@ -51,12 +51,12 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
       listener: (context, state) {
         print('=== RoundResultsScreen: State change ===');
         print('New state: ${state.runtimeType}');
-        
+
         if (state is GameCompleted) {
           print('GameCompleted received - navigating to final results');
           print('Players: ${state.players?.length ?? 0}');
           print('Winner names: ${state.winnerNames}');
-          
+
           // Navigate to final results with the completion data
           context.router.replace(
             FinalResultsRoute(
@@ -269,7 +269,7 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
   Widget _buildNavigationButton(BuildContext context, GameState state) {
     final isLastRound = roundNumber >= totalRounds;
     final isLoading = state is GameLoading;
-    
+
     String buttonText;
     if (isLastRound) {
       buttonText = isLoading ? 'Verarbeitung...' : 'Endergebnisse anzeigen';
@@ -282,24 +282,26 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
       child: AppButton(
         text: buttonText,
         isLoading: isLoading,
-        onPressed: isLoading ? null : () {
-          if (isLastRound) {
-            print('=== RoundResultsScreen: Completing game ===');
-            print('Dispatching CompleteGame event for gameId: $gameId');
-            // Game is complete, dispatch event and wait for listener to navigate
-            context.read<GameBloc>().add(CompleteGame(gameId: gameId));
-          } else {
-            // Move to next round
-            context.read<GameBloc>().add(
-                  StartRound(
-                    gameId: gameId,
-                    roundNumber: roundNumber + 1,
-                  ),
-                );
-            // Navigate to next role reveal screen
-            context.router.replace(RoleRevealRoute(gameId: gameId));
-          }
-        },
+        onPressed: isLoading
+            ? null
+            : () {
+                if (isLastRound) {
+                  print('=== RoundResultsScreen: Completing game ===');
+                  print('Dispatching CompleteGame event for gameId: $gameId');
+                  // Game is complete, dispatch event and wait for listener to navigate
+                  context.read<GameBloc>().add(CompleteGame(gameId: gameId));
+                } else {
+                  // Move to next round
+                  context.read<GameBloc>().add(
+                        StartRound(
+                          gameId: gameId,
+                          roundNumber: roundNumber + 1,
+                        ),
+                      );
+                  // Navigate to next role reveal screen
+                  context.router.replace(RoleRevealRoute(gameId: gameId));
+                }
+              },
       ),
     );
   }

@@ -244,4 +244,42 @@ class GameRepositoryImpl implements GameRepository {
 
     return finalScores;
   }
+  
+  @override
+  Future<Game> createGameWithCategories({
+    required int playerCount,
+    required int impostorCount,
+    required int roundCount,
+    required int timerDuration,
+    required bool impostorsKnowEachOther,
+    required List<String> selectedCategoryIds,
+  }) async {
+    // For now, we create a regular game and use the categories for word selection
+    // In the future, categories could be stored in a separate table or as a JSON field
+    final game = Game(
+      id: _uuid.v4(),
+      playerCount: playerCount,
+      impostorCount: impostorCount,
+      roundCount: roundCount,
+      timerDuration: timerDuration,
+      impostorsKnowEachOther: impostorsKnowEachOther,
+      state: DatabaseConstants.gameStateSetup,
+      currentRound: 0,
+      createdAt: DateTime.now(),
+    );
+
+    final gameMap = game.toMap();
+    print("GameRepositoryImpl.createGameWithCategories: impostorCount in Game object = ${game.impostorCount}");
+    print("GameRepositoryImpl.createGameWithCategories: Selected categories = $selectedCategoryIds");
+
+    await databaseHelper.insert(
+      DatabaseConstants.tableGames,
+      gameMap,
+    );
+
+    // TODO: In the future, store game-category relationships in a separate table
+    // For now, the categories are used during word selection but not persisted
+    
+    return game;
+  }
 }

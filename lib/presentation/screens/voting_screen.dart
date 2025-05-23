@@ -68,28 +68,39 @@ class _VotingScreenState extends State<VotingScreen> {
               if (votingState is VotingTallied) {
                 print("[VotingScreen] VotingTallied received: mostVotedPlayer: ${votingState.mostVotedPlayer?.name}");
 
-                bool finalImpostorsWon = votingState.impostorsWon;
                 final roundBlocCurrentState = widget.roundBloc.state;
-
+                bool finalImpostorsWon = true; // Default: spies win
+                
                 // Collect accused player IDs (those who were voted out)
                 List<String> accusedPlayerIds = [];
                 if (votingState.mostVotedPlayer != null) {
                   accusedPlayerIds.add(votingState.mostVotedPlayer!.id);
+                }
 
-                  // Determine if impostor was voted out
-                  bool impostorWasVotedOut = false;
-                  if (roundBlocCurrentState is RoundStarted) {
-                    final mostVotedPlayerRole = roundBlocCurrentState.playerRoles[votingState.mostVotedPlayer!.id];
-                    if (mostVotedPlayerRole == PlayerRoleType.impostor) {
-                      impostorWasVotedOut = true;
-                    }
-                  }
-                  finalImpostorsWon = !impostorWasVotedOut;
-                  if (votingState.votingResults.isEmpty) {
-                    finalImpostorsWon = true;
-                  }
+                // Determine winner using proper game logic
+                if (roundBlocCurrentState is RoundStarted) {
+                  final playerRoles = roundBlocCurrentState.playerRoles;
+                  
+                  // Get all spy IDs
+                  final List<String> spyIds = playerRoles.entries
+                      .where((entry) => entry.value == PlayerRoleType.impostor)
+                      .map((entry) => entry.key)
+                      .toList();
+                  
+                  print("[VotingScreen] Spy IDs: $spyIds");
+                  print("[VotingScreen] Accused player IDs: $accusedPlayerIds");
+                  
+                  // Team wins if ALL spies are accused AND ONLY spies are accused
+                  final bool allSpiesAccused = spyIds.every((spyId) => accusedPlayerIds.contains(spyId));
+                  final bool onlySpiesAccused = accusedPlayerIds.every((accusedId) => spyIds.contains(accusedId));
+                  
+                  finalImpostorsWon = !(allSpiesAccused && onlySpiesAccused);
+                  
+                  print("[VotingScreen] All spies accused: $allSpiesAccused");
+                  print("[VotingScreen] Only spies accused: $onlySpiesAccused");
+                  print("[VotingScreen] Final impostors won: $finalImpostorsWon");
                 } else {
-                  finalImpostorsWon = false;
+                  print("[VotingScreen] RoundBloc not in RoundStarted state, defaulting to spies win");
                 }
 
                 print("[VotingScreen] Dispatching CompleteRound to RoundBloc. ImpostorsWon: $finalImpostorsWon");

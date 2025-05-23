@@ -403,6 +403,7 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
 
       // Calculate scores based on voting results
       List<RoundScoreResult> scoreResults;
+      bool actualImpostorsWon;
       
       if (event.skipToResults) {
         // Use SkipToResults logic (spies automatically win)
@@ -410,6 +411,7 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
           players: allGamePlayers,
           spies: spyIds,
         );
+        actualImpostorsWon = true; // Spies always win when skipping
       } else {
         // Normal scoring logic
         scoreResults = scoreCalculator.calculateRoundScores(
@@ -419,6 +421,23 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
           wordGuessed: event.wordGuessed,
           wordGuesserId: event.wordGuesserId,
         );
+        
+        // 🚨 FIX: Calculate the actual winner based on score results instead of trusting the event
+        // Team wins if they correctly identified all spies (evidenced by team members getting +2 points)
+        final teamMembersWithPoints = scoreResults.where((result) => 
+          !result.isSpy && result.scoreChange > 0
+        ).length;
+        
+        final totalTeamMembers = scoreResults.where((result) => !result.isSpy).length;
+        
+        // If all team members got points, it means they correctly identified all spies
+        actualImpostorsWon = !(teamMembersWithPoints == totalTeamMembers && teamMembersWithPoints > 0);
+        
+        print('=== RoundBloc: Winner Calculation ===');
+        print('Original impostorsWon from event: ${event.impostorsWon}');
+        print('Team members with points: $teamMembersWithPoints / $totalTeamMembers');
+        print('Calculated actualImpostorsWon: $actualImpostorsWon');
+        print('Score results: ${scoreResults.map((r) => "${r.playerName}: ${r.scoreChange} (${r.reason})").join(", ")}');
       }
       
       // Update player scores in the database
@@ -438,7 +457,7 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         roundId: event.roundId,
         playerRoles: playerRolesInfo,
         secretWord: mainWord.text,
-        impostorsWon: event.impostorsWon,
+        impostorsWon: actualImpostorsWon, // 🚨 FIX: Use calculated value instead of event value
         wordGuessed: event.wordGuessed,
         scoreResults: scoreResults,
         roundNumber: round.roundNumber,

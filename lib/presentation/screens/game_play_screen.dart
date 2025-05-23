@@ -183,6 +183,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               mostVotedPlayer: null, // No player was voted out
               playerRoles: state.playerRoles,
               secretWord: state.secretWord,
+              gameId: widget.gameId, // Added missing gameId parameter
             ));
           }
         },

@@ -12,6 +12,7 @@ import 'package:wortspion/core/router/app_router.dart';
 import 'package:wortspion/data/models/game.dart';
 import 'package:wortspion/di/injection_container.dart';
 import 'package:wortspion/presentation/screens/player_registration_screen.dart';
+import 'package:wortspion/presentation/screens/category_selection_screen.dart';
 import 'package:wortspion/presentation/themes/app_spacing.dart';
 import 'package:wortspion/presentation/themes/app_typography.dart';
 import 'package:wortspion/presentation/widgets/app_slider.dart';
@@ -20,10 +21,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 @RoutePage()
 class GameSetupScreen extends StatefulWidget {
   final bool isSettingsOnly;
+  final bool fromGroup;
+  final List<String>? groupPlayerNames;
 
   const GameSetupScreen({
     super.key,
     this.isSettingsOnly = false,
+    this.fromGroup = false,
+    this.groupPlayerNames,
   });
 
   @override
@@ -45,7 +50,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   static const String _keyTimerDuration = 'game_timer_duration';
   static const String _keyImpostorsKnowEachOther = 'game_impostors_know_each_other';
   static const String _keyPlayerCount = 'game_player_count';
-  
+
   // Check if the GameBloc uses the same keys
   static const String _gameBlocImpostorCountKey = 'game_impostor_count'; // Should match GameBloc's key
 
@@ -54,6 +59,15 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     super.initState();
 
     _loadSettings();
+
+    // If from group, set player count but allow spy count to be adjustable
+    if (widget.fromGroup && widget.groupPlayerNames != null) {
+      _playerCount = widget.groupPlayerNames!.length;
+      // Ensure spy count is valid for the group size
+      if (_impostorCount >= _playerCount - 1) {
+        _impostorCount = (_playerCount - 2).clamp(1, _playerCount - 2);
+      }
+    }
 
     if (widget.isSettingsOnly) {
       _isEditingExistingGame = true;
@@ -67,11 +81,19 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       final prefs = await SharedPreferences.getInstance();
 
       setState(() {
-        _playerCount = prefs.getInt(_keyPlayerCount) ?? 5;
+        // Only load player count if not from group
+        if (!widget.fromGroup) {
+          _playerCount = prefs.getInt(_keyPlayerCount) ?? 5;
+        }
         _impostorCount = prefs.getInt(_keyImpostorCount) ?? 1;
         _roundCount = prefs.getInt(_keyRoundCount) ?? 3;
         _timerDuration = prefs.getInt(_keyTimerDuration) ?? 60;
         _impostorsKnowEachOther = prefs.getBool(_keyImpostorsKnowEachOther) ?? false;
+        
+        // Ensure spy count is valid for current player count
+        if (_impostorCount >= _playerCount - 1) {
+          _impostorCount = (_playerCount - 2).clamp(1, _playerCount - 2);
+        }
       });
 
       debugPrint('Loaded settings from SharedPreferences: $_playerCount players, $_impostorCount spies');
@@ -98,11 +120,11 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       print('- roundCount = $_roundCount');
       print('- timerDuration = $_timerDuration');
       print('- impostorsKnowEachOther = $_impostorsKnowEachOther');
-      
+
       // Double check if it was actually saved by retrieving it again
       final savedImpostorCount = prefs.getInt(_keyImpostorCount);
       print('Verification - Retrieved impostorCount from SharedPreferences: $savedImpostorCount');
-      
+
       // Now ensure GameBloc receives these updated settings by updating its SettingsBloc
       try {
         if (context.mounted) {
@@ -120,7 +142,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       } catch (e) {
         print('Note: Unable to update SettingsBloc - may not be mounted yet: $e');
       }
-      
+
       debugPrint('Saved settings to SharedPreferences');
     } catch (e) {
       debugPrint('Failed to save settings to SharedPreferences: $e');
@@ -166,7 +188,11 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       child: Builder(builder: (innerContext) {
         return Scaffold(
           appBar: AppBar(
-            title: Text(_isEditingExistingGame ? 'Einstellungen bearbeiten' : 'Spieleinstellungen'),
+            title: Text(_isEditingExistingGame
+                ? 'Einstellungen bearbeiten'
+                : widget.fromGroup
+                    ? 'Spieleinstellungen für Gruppe'
+                    : 'Spieleinstellungen'),
           ),
           body: Padding(
             padding: AppSpacing.screenPadding,
@@ -175,7 +201,11 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
               children: [
                 const SizedBox(height: 24),
                 Text(
-                  _isEditingExistingGame ? 'Einstellungen bearbeiten' : 'Spieleinstellungen',
+                  _isEditingExistingGame
+                      ? 'Einstellungen bearbeiten'
+                      : widget.fromGroup
+                          ? 'Spieleinstellungen für Gruppe'
+                          : 'Spieleinstellungen',
                   style: AppTypography.headline2,
                 ),
                 const SizedBox(height: 32),
@@ -195,28 +225,57 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Spieleranzahl
-        Text('Spieleranzahl: $_playerCount', style: AppTypography.subtitle1),
-        const SizedBox(height: 8),
-        AppSlider(
-          value: _playerCount.toDouble(),
-          min: 3,
-          max: 10,
-          divisions: 7,
-          onChanged: (value) {
-            setState(() {
-              _playerCount = value.toInt();
-              // Impostoranzahl anpassen, damit es immer weniger als Spieler sind
-              if (_impostorCount >= _playerCount - 1) {
-                _impostorCount = _playerCount - 2;
-              }
+        // Show group players if from group
+        if (widget.fromGroup && widget.groupPlayerNames != null) ...[
+          const Text('Spieler aus Gruppe:', style: AppTypography.subtitle1),
+          const SizedBox(height: 8),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 150), // Limit height to prevent overflow
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: SingleChildScrollView( // Make scrollable for many players
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < widget.groupPlayerNames!.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text('${i + 1}. ${widget.groupPlayerNames![i]}', style: AppTypography.body1),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text('Anzahl Spieler: ${widget.groupPlayerNames!.length}', style: AppTypography.body2.copyWith(color: Colors.grey[600])),
+          const SizedBox(height: 24),
+        ] else ...[
+          // Regular player count slider
+          Text('Spieleranzahl: $_playerCount', style: AppTypography.subtitle1),
+          const SizedBox(height: 8),
+          AppSlider(
+            value: _playerCount.toDouble(),
+            min: 3,
+            max: 10,
+            divisions: 7,
+            onChanged: (value) {
+              setState(() {
+                _playerCount = value.toInt();
+                // Impostoranzahl anpassen, damit es immer weniger als Spieler sind
+                if (_impostorCount >= _playerCount - 1) {
+                  _impostorCount = _playerCount - 2;
+                }
 
-              // Save settings immediately when changed
-              _saveSettings();
-            });
-          },
-        ),
-        const SizedBox(height: 24),
+                // Save settings immediately when changed
+                _saveSettings();
+              });
+            },
+          ),
+          const SizedBox(height: 24),
+        ],
 
         // Spion-Anzahl
         Text('Anzahl der Spione: $_impostorCount', style: AppTypography.subtitle1),
@@ -333,19 +392,52 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 return ElevatedButton(
                   onPressed: gameState is GameLoading
                       ? null
-                      : () {
-                          _saveSettings(); // Save to SharedPreferences
-                          // Dispatch event to GameBloc
-                          context.read<GameBloc>().add(
-                                CreateGame(
-                                  playerCount: _playerCount,
-                                  impostorCount: _impostorCount,
-                                  roundCount: _roundCount,
-                                  timerDuration: _timerDuration,
-                                  impostorsKnowEachOther: _impostorsKnowEachOther,
+                      : () async {
+                          // Save settings and wait for completion
+                          await _saveSettings();
+                          
+                          // Navigate to category selection screen
+                          if (widget.fromGroup && widget.groupPlayerNames != null) {
+                            // Small delay to ensure settings are persisted
+                            await Future.delayed(const Duration(milliseconds: 50));
+                            // Navigate to category selection for group game
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MultiBlocProvider(
+                                  providers: [
+                                    BlocProvider.value(value: context.read<GameBloc>()),
+                                  ],
+                                  child: CategorySelectionScreen(
+                                    playerCount: _playerCount,
+                                    impostorCount: _impostorCount,
+                                    roundCount: _roundCount,
+                                    timerDuration: _timerDuration,
+                                    impostorsKnowEachOther: _impostorsKnowEachOther,
+                                    groupPlayerNames: widget.groupPlayerNames,
+                                  ),
                                 ),
-                              );
-                          // Navigation to PlayerRegistrationScreen is handled by HomeScreen's listener
+                              ),
+                            );
+                          } else {
+                            // Navigate to category selection for regular game
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MultiBlocProvider(
+                                  providers: [
+                                    BlocProvider.value(value: context.read<GameBloc>()),
+                                  ],
+                                  child: CategorySelectionScreen(
+                                    playerCount: _playerCount,
+                                    impostorCount: _impostorCount,
+                                    roundCount: _roundCount,
+                                    timerDuration: _timerDuration,
+                                    impostorsKnowEachOther: _impostorsKnowEachOther,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                          // Navigation to next screen is handled by HomeScreen's listener
                         },
                   child: gameState is GameLoading
                       ? const SizedBox(
@@ -356,7 +448,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Spiel erstellen'),
+                      : Text(widget.fromGroup ? 'Spiel mit Gruppe starten' : 'Spiel erstellen'),
                 );
               },
             ),

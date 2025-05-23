@@ -10,6 +10,7 @@ import 'package:wortspion/blocs/player_group/player_group_event.dart';
 import 'package:wortspion/blocs/player_group/player_group_state.dart';
 import 'package:wortspion/core/router/app_router.dart';
 import 'package:wortspion/di/injection_container.dart';
+import 'package:wortspion/data/repositories/game_repository.dart';
 import 'package:wortspion/presentation/themes/app_spacing.dart';
 import 'package:wortspion/presentation/themes/app_typography.dart';
 import 'package:wortspion/blocs/settings/settings_bloc.dart';
@@ -39,29 +40,62 @@ class _HomeScreenState extends State<HomeScreen> {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (context) => sl<GameBloc>()..add(const LoadGame()),
+          create: (context) => sl<GameBloc>(),
         ),
         BlocProvider.value(
           value: _playerGroupBloc,
         ),
       ],
       child: BlocListener<GameBloc, GameState>(
-        listener: (context, gameState) {
+        listener: (context, gameState) async {
           if (gameState is GameCreated) {
-            // Navigate to player registration screen when a game is created
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (navContext) => MultiBlocProvider(
-                  providers: [
-                    BlocProvider(create: (_) => sl<PlayerBloc>()),
-                    BlocProvider.value(
-                      value: BlocProvider.of<GameBloc>(context), // Use GameBloc from HomeScreen
+            print('GameCreated received, checking if players are already registered...');
+            
+            // Check if players are already added to the game (e.g., from a group)
+            try {
+              final gameRepository = sl<GameRepository>();
+              final players = await gameRepository.getPlayersByGameId(gameState.game.id);
+              
+              print('Found ${players.length} existing players in game ${gameState.game.id}');
+              
+              if (players.isNotEmpty) {
+                print('Players already exist, skipping player registration and going to role reveal');
+                // Players are already registered (from group), skip to role reveal
+                context.router.push(RoleRevealRoute(gameId: gameState.game.id));
+              } else {
+                print('No players found, navigating to player registration');
+                // No players yet, go to player registration
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (navContext) => MultiBlocProvider(
+                      providers: [
+                        BlocProvider(create: (_) => sl<PlayerBloc>()),
+                        BlocProvider.value(
+                          value: BlocProvider.of<GameBloc>(context),
+                        ),
+                      ],
+                      child: PlayerRegistrationScreen(game: gameState.game),
                     ),
-                  ],
-                  child: PlayerRegistrationScreen(game: gameState.game),
+                  ),
+                );
+              }
+            } catch (e) {
+              print('Error checking players: $e');
+              // Fallback to player registration if there's an error
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (navContext) => MultiBlocProvider(
+                    providers: [
+                      BlocProvider(create: (_) => sl<PlayerBloc>()),
+                      BlocProvider.value(
+                        value: BlocProvider.of<GameBloc>(context),
+                      ),
+                    ],
+                    child: PlayerRegistrationScreen(game: gameState.game),
+                  ),
                 ),
-              ),
-            );
+              );
+            }
           } else if (gameState is GameError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Fehler: ${gameState.message}')),
@@ -187,7 +221,32 @@ class _HomeScreenState extends State<HomeScreen> {
                                 icon: const Icon(Icons.play_circle_outline),
                                 tooltip: 'Spiel starten',
                                 onPressed: () {
-                                  context.read<GameBloc>().add(CreateGameFromGroup(playerNames: group.playerNames));
+                                  // Clean up any existing game state before starting from group
+                                  final gameBloc = context.read<GameBloc>();
+                                  final currentState = gameBloc.state;
+                                  
+                                  // If there's an existing game, delete it first
+                                  if (currentState is GameCreated) {
+                                    gameBloc.add(DeleteGame(gameId: currentState.game.id));
+                                  } else if (currentState is GameInProgress) {
+                                    gameBloc.add(DeleteGame(gameId: currentState.game.id));
+                                  }
+                                  
+                                  // Navigate to GameSetupScreen with group data
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => MultiBlocProvider(
+                                        providers: [
+                                          BlocProvider.value(value: gameBloc),
+                                          BlocProvider(create: (context) => sl<SettingsBloc>()),
+                                        ],
+                                        child: GameSetupScreen(
+                                          fromGroup: true,
+                                          groupPlayerNames: group.playerNames,
+                                        ),
+                                      ),
+                                    ),
+                                  );
                                 },
                               ),
                               IconButton(
@@ -260,71 +319,29 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, state) {
         if (state is GameLoading) {
           return const CircularProgressIndicator();
-        } else if (state is GameInProgress || state is GameCreated) {
-          return Column(
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  // Zum laufenden Spiel navigieren
-                  if (state is GameInProgress) {
-                    // Navigation je nach Spielstatus anpassen
-                    if (state.game.currentRound > 0) {
-                      context.router.push(RoleRevealRoute(gameId: state.game.id));
-                    } else {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => MultiBlocProvider(
-                            providers: [
-                              BlocProvider(create: (_) => sl<PlayerBloc>()),
-                              BlocProvider.value(
-                                value: context.read<GameBloc>(),
-                              ),
-                            ],
-                            child: PlayerRegistrationScreen(game: state.game),
-                          ),
-                        ),
-                      );
-                    }
-                  } else if (state is GameCreated) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => MultiBlocProvider(
-                          providers: [
-                            BlocProvider(create: (_) => sl<PlayerBloc>()),
-                            BlocProvider.value(
-                              value: context.read<GameBloc>(),
-                            ),
-                          ],
-                          child: PlayerRegistrationScreen(game: state.game),
-                        ),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Spiel fortsetzen'),
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: () {
-                  // Spiel beenden
-                  _showEndGameConfirmDialog(context, state);
-                },
-                child: const Text('Spiel beenden'),
-              ),
-            ],
-          );
         } else {
           return SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                // Modified to ensure settings flow through GameSetupScreen
+                // Clean up any existing game state before starting new game
+                final gameBloc = BlocProvider.of<GameBloc>(context);
+                final currentState = gameBloc.state;
+                
+                // If there's an existing game, delete it first
+                if (currentState is GameCreated) {
+                  gameBloc.add(DeleteGame(gameId: currentState.game.id));
+                } else if (currentState is GameInProgress) {
+                  gameBloc.add(DeleteGame(gameId: currentState.game.id));
+                }
+                
+                // Always start a new game and go through settings
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => MultiBlocProvider(
                       providers: [
                         BlocProvider.value(
-                          value: BlocProvider.of<GameBloc>(context),
+                          value: gameBloc,
                         ),
                         BlocProvider(
                           create: (context) => sl<SettingsBloc>(),
@@ -343,39 +360,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showEndGameConfirmDialog(BuildContext outerContext, GameState state) {
-    // Capture GameBloc instance using the context that is known to have it.
-    final GameBloc gameBloc = BlocProvider.of<GameBloc>(outerContext);
-
-    showDialog(
-      context: outerContext,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Spiel beenden?'),
-        content: const Text(
-          'Bist du sicher, dass du das laufende Spiel beenden möchtest? '
-          'Alle Fortschritte gehen verloren.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Abbrechen'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              // Use the captured gameBloc instance directly.
-              if (state is GameInProgress) {
-                gameBloc.add(DeleteGame(gameId: state.game.id));
-              } else if (state is GameCreated) {
-                gameBloc.add(DeleteGame(gameId: state.game.id));
-              }
-            },
-            child: const Text('Beenden'),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showRulesDialog(BuildContext context) {
     showDialog(

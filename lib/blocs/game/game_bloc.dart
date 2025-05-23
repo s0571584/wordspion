@@ -43,6 +43,8 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     on<CompleteGame>(_onCompleteGame);
     on<DeleteGame>(_onDeleteGame);
     on<CreateGameFromGroup>(_onCreateGameFromGroup);
+    on<CreateGameWithCategories>(_onCreateGameWithCategories);
+    on<CreateGameFromGroupWithCategories>(_onCreateGameFromGroupWithCategories);
 
     // Print key check
     _checkKeys();
@@ -426,6 +428,99 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       }
 
       print('GameBloc: Game created and updated successfully. Final impostor count = ${updatedGame.impostorCount}');
+      emit(GameCreated(updatedGame));
+    } catch (e) {
+      emit(GameError('Fehler beim Erstellen des Spiels aus Gruppe: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onCreateGameWithCategories(
+    CreateGameWithCategories event,
+    Emitter<GameState> emit,
+  ) async {
+    emit(GameLoading());
+
+    try {
+      print('_onCreateGameWithCategories: Creating game with categories ${event.selectedCategoryIds}');
+      
+      // Store user settings for future use
+      _lastImpostorCount = event.impostorCount;
+      _lastRoundCount = event.roundCount;
+      _lastTimerDuration = event.timerDuration;
+      _lastImpostorsKnowEachOther = event.impostorsKnowEachOther;
+
+      // Save settings to SharedPreferences
+      await _saveSettings();
+
+      final game = await gameRepository.createGameWithCategories(
+        playerCount: event.playerCount,
+        impostorCount: event.impostorCount,
+        roundCount: event.roundCount,
+        timerDuration: event.timerDuration,
+        impostorsKnowEachOther: event.impostorsKnowEachOther,
+        selectedCategoryIds: event.selectedCategoryIds,
+      );
+
+      emit(GameCreated(game));
+    } catch (e) {
+      emit(GameError('Fehler beim Erstellen des Spiels: $e'));
+    }
+  }
+
+  Future<void> _onCreateGameFromGroupWithCategories(
+    CreateGameFromGroupWithCategories event,
+    Emitter<GameState> emit,
+  ) async {
+    emit(GameLoading());
+    
+    try {
+      final int playerCount = event.playerNames.length;
+      print('_onCreateGameFromGroupWithCategories: Creating game from group with categories ${event.selectedCategoryIds}');
+      
+      // Store user settings for future use
+      _lastImpostorCount = event.impostorCount;
+      _lastRoundCount = event.roundCount;
+      _lastTimerDuration = event.timerDuration;
+      _lastImpostorsKnowEachOther = event.impostorsKnowEachOther;
+
+      // Save settings to SharedPreferences
+      await _saveSettings();
+      
+      // Create the game with user settings and selected categories
+      final game = await gameRepository.createGameWithCategories(
+        playerCount: playerCount,
+        impostorCount: event.impostorCount,
+        roundCount: event.roundCount,
+        timerDuration: event.timerDuration,
+        impostorsKnowEachOther: event.impostorsKnowEachOther,
+        selectedCategoryIds: event.selectedCategoryIds,
+      );
+
+      // Add all players from the group
+      for (final playerName in event.playerNames) {
+        await gameRepository.addPlayer(gameId: game.id, name: playerName);
+      }
+
+      // Update game state to ready for play
+      await gameRepository.updateGameState(
+        game.id,
+        DatabaseConstants.gameStateSetup,
+      );
+
+      // Update current round to 1 to prepare for game start
+      await gameRepository.updateCurrentRound(
+        game.id,
+        1,
+      );
+
+      // Get the updated game object
+      final updatedGame = await gameRepository.getGameById(game.id);
+      if (updatedGame == null) {
+        emit(const GameError('Spiel konnte nicht korrekt erstellt werden'));
+        return;
+      }
+
+      print('GameBloc: Game created from group with categories successfully');
       emit(GameCreated(updatedGame));
     } catch (e) {
       emit(GameError('Fehler beim Erstellen des Spiels aus Gruppe: ${e.toString()}'));
