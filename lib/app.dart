@@ -11,7 +11,6 @@ class WortSpionApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'WortSpion',
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
       routerDelegate: AutoRouterDelegate(_appRouter),

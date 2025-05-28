@@ -3,6 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:wortspion/data/models/player.dart';
 import 'package:wortspion/presentation/themes/app_colors.dart';
+
+// SABOTEUR IMPLEMENTATION STATUS:
+// - Color scheme updated to be neutral (not team-specific)
+// - Winner announcements work for any role type
+// - TODO: Add role-specific styling when Player model includes role data
 import 'package:wortspion/presentation/themes/app_spacing.dart';
 import 'package:wortspion/presentation/themes/app_typography.dart';
 import 'package:wortspion/presentation/widgets/app_button.dart';
@@ -264,14 +269,17 @@ class _FinalResultsScreenState extends State<FinalResultsScreen> {
     }
 
     final String titleText = winnerNames.length > 1 ? '🏆 Gewinner 🏆' : '🏆 Gewinner 🏆';
+    
+    // Use a more neutral color scheme for winners (could be team, spy, or saboteur)
+    final Color winnerColor = AppColors.primary;
 
     return Card(
       margin: const EdgeInsets.all(AppSpacing.m),
-      color: AppColors.team.withOpacity(0.1),
+      color: winnerColor.withOpacity(0.1),
       elevation: 8,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.team.withOpacity(0.5), width: 2),
+        side: BorderSide(color: winnerColor.withOpacity(0.5), width: 2),
       ),
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -279,17 +287,17 @@ class _FinalResultsScreenState extends State<FinalResultsScreen> {
           children: [
             Text(
               titleText,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: AppColors.team,
+                color: winnerColor,
               ),
             ),
             const SizedBox(height: AppSpacing.m),
             Text(
               winnerText,
               style: AppTypography.headline1.copyWith(
-                color: AppColors.team,
+                color: winnerColor,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
@@ -321,8 +329,9 @@ class _FinalResultsScreenState extends State<FinalResultsScreen> {
         Color textColor;
 
         if (isWinner) {
-          backgroundColor = AppColors.team.withOpacity(0.3);
-          positionColor = AppColors.team;
+          // TODO: In future, could use role-specific colors (team/spy/saboteur)
+          backgroundColor = AppColors.primary.withOpacity(0.3);
+          positionColor = AppColors.primary;
           textColor = Colors.black;
         } else if (isTopThree) {
           backgroundColor = AppColors.accent.withOpacity(0.2);
@@ -363,15 +372,15 @@ class _FinalResultsScreenState extends State<FinalResultsScreen> {
                 vertical: AppSpacing.xs,
               ),
               decoration: BoxDecoration(
-                color: isWinner ? AppColors.team.withOpacity(0.1) : AppColors.background,
+                color: isWinner ? AppColors.primary.withOpacity(0.1) : AppColors.background,
                 borderRadius: BorderRadius.circular(12),
-                border: isWinner ? Border.all(color: AppColors.team.withOpacity(0.3)) : null,
+                border: isWinner ? Border.all(color: AppColors.primary.withOpacity(0.3)) : null,
               ),
               child: Text(
                 '${ranking.player.score} Pkt.',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: isWinner ? AppColors.team : Colors.black,
+                  color: isWinner ? AppColors.primary : Colors.black,
                   fontSize: isWinner ? 16 : 14,
                 ),
               ),

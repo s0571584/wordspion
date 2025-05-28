@@ -3,6 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:wortspion/blocs/game/game_bloc.dart';
 import 'package:wortspion/blocs/game/game_event.dart';
+
+// SABOTEUR IMPLEMENTATION STATUS - COMPLETED:
+// - Saboteurs show orange color and theater_comedy icon
+// - Role text shows "(Saboteur)" instead of "(Team)"
+// - Saboteur win messages display correctly
+// - Saboteur win detection implemented
 import 'package:wortspion/blocs/round/round_state.dart';
 import 'package:wortspion/core/router/app_router.dart';
 import 'package:wortspion/data/models/round_score_result.dart';
@@ -10,7 +16,6 @@ import 'package:wortspion/presentation/themes/app_colors.dart';
 import 'package:wortspion/presentation/themes/app_spacing.dart';
 import 'package:wortspion/presentation/themes/app_typography.dart';
 import 'package:wortspion/presentation/widgets/app_button.dart';
-import 'package:wortspion/core/utils/round_results_state.dart';
 import 'package:get_it/get_it.dart';
 import 'package:wortspion/blocs/game/game_state.dart';
 
@@ -123,13 +128,30 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
   }
 
   Widget _buildOutcomeCard(BuildContext context) {
-    final String outcomeText = impostorsWon ? 'Die Spione haben gewonnen!' : 'Das Team hat gewonnen!';
+    // Check for saboteur wins by examining score results
+    final saboteurWon = scoreResults.any((result) => result.isSaboteur && result.reason.contains("Saboteur beschuldigt"));
 
-    final String subtitleText = wordGuessed ? 'Ein Spion hat das Geheimwort erraten.' : '';
+    late final String outcomeText;
+    late final String subtitleText;
+    late final Color backgroundColor;
+    late final Color textColor;
 
-    final Color backgroundColor = impostorsWon ? AppColors.impostor.withOpacity(0.1) : AppColors.team.withOpacity(0.1);
-
-    final Color textColor = impostorsWon ? AppColors.impostor : AppColors.team;
+    if (saboteurWon) {
+      outcomeText = '🎭 Saboteur gewinnt!';
+      subtitleText = 'Der Saboteur wurde erfolgreich beschuldigt!';
+      backgroundColor = AppColors.saboteur.withOpacity(0.1);
+      textColor = AppColors.saboteur;
+    } else if (impostorsWon) {
+      outcomeText = 'Die Spione haben gewonnen!';
+      subtitleText = wordGuessed ? 'Ein Spion hat das Geheimwort erraten.' : '';
+      backgroundColor = AppColors.impostor.withOpacity(0.1);
+      textColor = AppColors.impostor;
+    } else {
+      outcomeText = 'Das Team hat gewonnen!';
+      subtitleText = '';
+      backgroundColor = AppColors.team.withOpacity(0.1);
+      textColor = AppColors.team;
+    }
 
     return Card(
       margin: const EdgeInsets.symmetric(
@@ -203,8 +225,24 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
   }
 
   Widget _buildScoreCard(BuildContext context, RoundScoreResult result, int position) {
-    final IconData roleIcon = result.isSpy ? Icons.psychology_alt : Icons.person;
-    final Color roleColor = result.isSpy ? AppColors.impostor : AppColors.primary;
+    // Determine role icon and color based on player type
+    late final IconData roleIcon;
+    late final Color roleColor;
+    late final String roleText;
+
+    if (result.isSpy) {
+      roleIcon = Icons.psychology_alt;
+      roleColor = AppColors.impostor;
+      roleText = "(Spion)";
+    } else if (result.isSaboteur) {
+      roleIcon = Icons.theater_comedy;
+      roleColor = AppColors.saboteur;
+      roleText = "(Saboteur)";
+    } else {
+      roleIcon = Icons.person;
+      roleColor = AppColors.primary;
+      roleText = "(Team)";
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -214,7 +252,7 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
           child: Icon(roleIcon, color: roleColor),
         ),
         title: Text(
-          '${result.playerName} ${result.isSpy ? "(Spion)" : "(Team)"}',
+          '${result.playerName} $roleText',
           style: AppTypography.body1.copyWith(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(

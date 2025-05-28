@@ -75,6 +75,8 @@ abstract class _$AppRouter extends RootStackRouter {
         child: GameSetupScreen(
           key: args.key,
           isSettingsOnly: args.isSettingsOnly,
+          fromGroup: args.fromGroup,
+          groupPlayerNames: args.groupPlayerNames,
         ),
       );
     },
@@ -208,11 +210,17 @@ class CategorySelectionRouteArgs {
   });
 
   final Key? key;
+
   final int playerCount;
+
   final int impostorCount;
+
   final int roundCount;
+
   final int timerDuration;
+
   final bool impostorsKnowEachOther;
+
   final List<String>? groupPlayerNames;
 
   @override
@@ -363,12 +371,16 @@ class GameSetupRoute extends PageRouteInfo<GameSetupRouteArgs> {
   GameSetupRoute({
     Key? key,
     bool isSettingsOnly = false,
+    bool fromGroup = false,
+    List<String>? groupPlayerNames,
     List<PageRouteInfo>? children,
   }) : super(
           GameSetupRoute.name,
           args: GameSetupRouteArgs(
             key: key,
             isSettingsOnly: isSettingsOnly,
+            fromGroup: fromGroup,
+            groupPlayerNames: groupPlayerNames,
           ),
           initialChildren: children,
         );
@@ -383,15 +395,21 @@ class GameSetupRouteArgs {
   const GameSetupRouteArgs({
     this.key,
     this.isSettingsOnly = false,
+    this.fromGroup = false,
+    this.groupPlayerNames,
   });
 
   final Key? key;
 
   final bool isSettingsOnly;
 
+  final bool fromGroup;
+
+  final List<String>? groupPlayerNames;
+
   @override
   String toString() {
-    return 'GameSetupRouteArgs{key: $key, isSettingsOnly: $isSettingsOnly}';
+    return 'GameSetupRouteArgs{key: $key, isSettingsOnly: $isSettingsOnly, fromGroup: $fromGroup, groupPlayerNames: $groupPlayerNames}';
   }
 }
 
@@ -511,7 +529,7 @@ class ResultsRouteArgs {
   final List<PlayerRoleInfo> playerRoles;
 
   final String secretWord;
-  
+
   final String gameId;
 
   @override

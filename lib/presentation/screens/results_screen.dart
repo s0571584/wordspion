@@ -65,34 +65,34 @@ class _ResultsScreenState extends State<ResultsScreen> {
       ),
     );
   }
-  
+
   /// Restart the game with the same players and configuration
   Future<void> _playAgain(BuildContext context) async {
     setState(() {
       _isPlayingAgain = true;
     });
-    
+
     try {
       print('=== Play Again: Starting new game from Results ===');
-      
+
       // Get the current game configuration from the database
       final gameRepository = sl<GameRepository>();
       final currentGame = await gameRepository.getGameById(widget.gameId);
-      
+
       if (currentGame == null) {
         throw Exception('Original game not found');
       }
-      
+
       print('Original game config: ${currentGame.playerCount} players, ${currentGame.impostorCount} impostors');
-      
+
       // Extract player names from playerRoles
       final playerNames = widget.playerRoles.map((role) => role.playerName).toList();
-      
+
       print('Players for new game: ${playerNames.join(", ")}');
-      
+
       // Create a new game with the same configuration but using CreateGameFromGroup
       final gameBloc = context.read<GameBloc>();
-      
+
       // First, clean up any existing game state
       final currentState = gameBloc.state;
       if (currentState is GameCreated || currentState is GameInProgress || currentState is GameCompleted) {
@@ -101,12 +101,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
         // Wait a moment for the deletion to process
         await Future.delayed(const Duration(milliseconds: 100));
       }
-      
+
       // Create the new game from the group of players
       gameBloc.add(CreateGameFromGroup(playerNames: playerNames));
-      
+
       print('Dispatched CreateGameFromGroup event');
-      
     } catch (e) {
       print('Error in _playAgain: $e');
       setState(() {
@@ -176,7 +175,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 BlocBuilder<GameBloc, GameState>(
                   builder: (context, state) {
                     final isLoading = state is GameLoading || _isPlayingAgain;
-                    
+
                     return AppButton(
                       text: 'Nochmal spielen',
                       isLoading: isLoading,
@@ -191,9 +190,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 // Return to main menu button
                 AppButton(
                   text: 'Zurück zum Hauptmenü',
-                  onPressed: _isPlayingAgain ? null : () {
-                    context.router.replace(const HomeRoute());
-                  },
+                  onPressed: _isPlayingAgain
+                      ? null
+                      : () {
+                          context.router.replace(const HomeRoute());
+                        },
                   backgroundColor: Colors.grey.shade600,
                   icon: Icons.home,
                   isFullWidth: true,
@@ -262,7 +263,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 Text(
                   playerRole.roleName,
                   style: TextStyle(
-                    color: playerRole.isImpostor ? Colors.red : Colors.green,
+                    color: _getRoleColor(playerRole.roleName, playerRole.isImpostor),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -282,5 +283,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
         ),
       ],
     );
+  }
+
+  // Helper method to determine the color for a player role
+  Color _getRoleColor(String roleName, bool isImpostor) {
+    if (isImpostor) return Colors.red;
+    if (roleName.toLowerCase().contains('saboteur')) return Colors.orange;
+    return Colors.green;
   }
 }

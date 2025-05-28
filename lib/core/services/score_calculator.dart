@@ -8,6 +8,7 @@ class ScoreCalculator {
   /// Parameters:
   /// - players: List of all players in the game
   /// - spies: List of spy player IDs
+  /// - saboteurs: List of saboteur player IDs (NEW)
   /// - accusedSpies: List of player IDs accused as spies
   /// - wordGuessed: Whether any spy successfully guessed the secret word
   /// - wordGuesserId: ID of the player who guessed the word (if applicable)
@@ -16,60 +17,115 @@ class ScoreCalculator {
   List<RoundScoreResult> calculateRoundScores({
     required List<Player> players,
     required List<String> spies,
+    required List<String> saboteurs,
     required List<String> accusedSpies,
     required bool wordGuessed,
     String? wordGuesserId,
   }) {
     final List<RoundScoreResult> results = [];
     
-    // Determine if team identified all spies correctly
-    final bool identifiedAllSpies = _teamIdentifiedAllSpies(spies, accusedSpies);
+    // Check if any saboteur was accused
+    final bool saboteurAccused = saboteurs.any((saboteurId) => accusedSpies.contains(saboteurId));
     
-    for (final player in players) {
-      final bool isSpy = spies.contains(player.id);
-      int scoreChange = 0;
-      String reason = '';
-      
-      if (isSpy) {
-        // Score calculation for spies
-        if (!accusedSpies.contains(player.id)) {
-          // Spy remained undetected
+    // NEW SABOTEUR LOGIC: If saboteur is among accused, special scoring applies
+    if (saboteurAccused) {
+      for (final player in players) {
+        final bool isSpy = spies.contains(player.id);
+        final bool isSaboteur = saboteurs.contains(player.id);
+        int scoreChange = 0;
+        String reason = '';
+        
+        if (isSaboteur && accusedSpies.contains(player.id)) {
+          // Saboteur was accused - gets +3 points (saboteur wins!)
           scoreChange += 3;
-          reason = 'Spion unentdeckt (+3)';
+          reason = 'Saboteur beschuldigt (+3)';
+        } else if (isSpy) {
+          // Spies get +1 point each when saboteur is accused
+          scoreChange += 1;
+          reason = 'Saboteur beschuldigt, Spion profitiert (+1)';
+          
+          // Bonus points for guessing the word still apply
+          if (wordGuessed && player.id == wordGuesserId) {
+            scoreChange += 2;
+            reason = '$reason, Wort erraten (+2)';
+          }
         } else {
-          reason = 'Spion entdeckt (0)';
-        }
-        
-        // Bonus points for guessing the word
-        if (wordGuessed && player.id == wordGuesserId) {
-          scoreChange += 2;
-          reason = reason.isEmpty ? 'Wort erraten (+2)' : '$reason, Wort erraten (+2)';
-        }
-      } else {
-        // Score calculation for team members
-        if (identifiedAllSpies) {
-          // Team correctly identified all spies
-          scoreChange += 2;
-          reason = 'Alle Spione entdeckt (+2)';
-        } else {
-          reason = 'Spione nicht vollständig entdeckt (0)';
-        }
-        
-        // Penalty for being falsely accused
-        if (accusedSpies.contains(player.id)) {
+          // Team members get -1 point each when saboteur is accused
           scoreChange -= 1;
-          reason = 'Fälschlicherweise beschuldigt (-1)';
+          reason = 'Saboteur beschuldigt, Team verliert (-1)';
         }
+        
+        results.add(RoundScoreResult(
+          playerId: player.id,
+          playerName: player.name,
+          scoreChange: scoreChange,
+          totalScore: player.score + scoreChange,
+          isSpy: isSpy,
+          isSaboteur: isSaboteur,  // 🆕 FIX: Add missing saboteur flag
+          reason: reason,
+        ));
       }
+    } else {
+      // EXISTING LOGIC: Normal scoring when no saboteur is accused
+      // Determine if team identified all spies correctly
+      final bool identifiedAllSpies = _teamIdentifiedAllSpies(spies, accusedSpies);
       
-      results.add(RoundScoreResult(
-        playerId: player.id,
-        playerName: player.name,
-        scoreChange: scoreChange,
-        totalScore: player.score + scoreChange,
-        isSpy: isSpy,
-        reason: reason,
-      ));
+      for (final player in players) {
+        final bool isSpy = spies.contains(player.id);
+        final bool isSaboteur = saboteurs.contains(player.id);
+        int scoreChange = 0;
+        String reason = '';
+        
+        if (isSpy) {
+          // Score calculation for spies
+          if (!accusedSpies.contains(player.id)) {
+            // Spy remained undetected
+            scoreChange += 3;
+            reason = 'Spion unentdeckt (+3)';
+          } else {
+            reason = 'Spion entdeckt (0)';
+          }
+          
+          // Bonus points for guessing the word
+          if (wordGuessed && player.id == wordGuesserId) {
+            scoreChange += 2;
+            reason = reason.isEmpty ? 'Wort erraten (+2)' : '$reason, Wort erraten (+2)';
+          }
+        } else if (isSaboteur) {
+          // Saboteur scoring when not accused (normal team member behavior)
+          if (identifiedAllSpies) {
+            scoreChange += 2;
+            reason = 'Alle Spione entdeckt (+2)';
+          } else {
+            reason = 'Spione nicht vollständig entdeckt (0)';
+          }
+        } else {
+          // Score calculation for regular team members
+          if (identifiedAllSpies) {
+            // Team correctly identified all spies
+            scoreChange += 2;
+            reason = 'Alle Spione entdeckt (+2)';
+          } else {
+            reason = 'Spione nicht vollständig entdeckt (0)';
+          }
+          
+          // Penalty for being falsely accused
+          if (accusedSpies.contains(player.id)) {
+            scoreChange -= 1;
+            reason = 'Fälschlicherweise beschuldigt (-1)';
+          }
+        }
+        
+        results.add(RoundScoreResult(
+          playerId: player.id,
+          playerName: player.name,
+          scoreChange: scoreChange,
+          totalScore: player.score + scoreChange,
+          isSpy: isSpy,
+          isSaboteur: isSaboteur,  // 🆕 FIX: Add missing saboteur flag
+          reason: reason,
+        ));
+      }
     }
     
     return results;
@@ -79,11 +135,13 @@ class ScoreCalculator {
   List<RoundScoreResult> calculateSkipResults({
     required List<Player> players,
     required List<String> spies,
+    required List<String> saboteurs,
   }) {
     final List<RoundScoreResult> results = [];
     
     for (final player in players) {
       final bool isSpy = spies.contains(player.id);
+      final bool isSaboteur = saboteurs.contains(player.id);
       int scoreChange = 0;
       String reason = '';
       
@@ -91,6 +149,9 @@ class ScoreCalculator {
         // Spies win when skipping
         scoreChange += 3;
         reason = 'Runde übersprungen, Spione gewinnen (+3)';
+      } else if (isSaboteur) {
+        // Saboteurs don't get points when skipping (same as team)
+        reason = 'Runde übersprungen, Team verliert (0)';
       } else {
         // Team members don't get points when skipping
         reason = 'Runde übersprungen, Team verliert (0)';
@@ -102,6 +163,7 @@ class ScoreCalculator {
         scoreChange: scoreChange,
         totalScore: player.score + scoreChange,
         isSpy: isSpy,
+        isSaboteur: isSaboteur,  // 🆕 FIX: Add missing saboteur flag
         reason: reason,
       ));
     }

@@ -10,6 +10,7 @@ abstract class GameEvent extends Equatable {
 class CreateGame extends GameEvent {
   final int playerCount;
   final int impostorCount;
+  final int saboteurCount; // 🆕 NEW: Add saboteur count
   final int roundCount;
   final int timerDuration;
   final bool impostorsKnowEachOther;
@@ -17,6 +18,7 @@ class CreateGame extends GameEvent {
   const CreateGame({
     required this.playerCount,
     required this.impostorCount,
+    this.saboteurCount = 0, // 🆕 NEW: Default to 0 for backward compatibility
     required this.roundCount,
     required this.timerDuration,
     required this.impostorsKnowEachOther,
@@ -26,6 +28,7 @@ class CreateGame extends GameEvent {
   List<Object> get props => [
         playerCount,
         impostorCount,
+        saboteurCount, // 🆕 NEW: Include in equality check
         roundCount,
         timerDuration,
         impostorsKnowEachOther,
@@ -111,6 +114,7 @@ class CreateGameFromGroup extends GameEvent {
 class CreateGameWithCategories extends GameEvent {
   final int playerCount;
   final int impostorCount;
+  final int saboteurCount; // 🆕 NEW: Add saboteur count
   final int roundCount;
   final int timerDuration;
   final bool impostorsKnowEachOther;
@@ -119,6 +123,7 @@ class CreateGameWithCategories extends GameEvent {
   const CreateGameWithCategories({
     required this.playerCount,
     required this.impostorCount,
+    this.saboteurCount = 0, // 🆕 NEW: Default to 0 for backward compatibility
     required this.roundCount,
     required this.timerDuration,
     required this.impostorsKnowEachOther,
@@ -129,6 +134,7 @@ class CreateGameWithCategories extends GameEvent {
   List<Object> get props => [
         playerCount,
         impostorCount,
+        saboteurCount, // 🆕 NEW: Include in equality check
         roundCount,
         timerDuration,
         impostorsKnowEachOther,
@@ -141,6 +147,7 @@ class CreateGameFromGroupWithCategories extends GameEvent {
   final List<String> playerNames;
   final List<String> selectedCategoryIds;
   final int impostorCount;
+  final int saboteurCount; // 🆕 NEW: Add saboteur count
   final int roundCount;
   final int timerDuration;
   final bool impostorsKnowEachOther;
@@ -149,6 +156,7 @@ class CreateGameFromGroupWithCategories extends GameEvent {
     required this.playerNames,
     required this.selectedCategoryIds,
     required this.impostorCount,
+    this.saboteurCount = 0, // 🆕 NEW: Default to 0 for backward compatibility
     required this.roundCount,
     required this.timerDuration,
     required this.impostorsKnowEachOther,
@@ -159,6 +167,7 @@ class CreateGameFromGroupWithCategories extends GameEvent {
         playerNames,
         selectedCategoryIds,
         impostorCount,
+        saboteurCount, // 🆕 NEW: Include in equality check
         roundCount,
         timerDuration,
         impostorsKnowEachOther,

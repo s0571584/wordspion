@@ -154,39 +154,53 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
       // Get current game if one exists
       final currentGame = await gameRepository.getCurrentGame();
 
-      // If a game already exists, mark it as finished
-      if (currentGame != null) {
-        await gameRepository.updateGameState(currentGame.id, DatabaseConstants.gameStateFinished);
+      late final game;
+      
+      // Check if current game has selected categories (was created via category selection)
+      if (currentGame != null && currentGame.selectedCategoryIds != null && currentGame.selectedCategoryIds!.isNotEmpty) {
+        // 🎯 FIX: Use existing game with categories instead of creating new one
+        print("PlayerBloc: Using existing game with categories: ${currentGame.selectedCategoryIds}");
+        game = currentGame;
+      } else {
+        // If previous game exists without categories, mark it as finished
+        if (currentGame != null) {
+          await gameRepository.updateGameState(currentGame.id, DatabaseConstants.gameStateFinished);
+        }
+
+        // Load settings from SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final impostorCount = prefs.getInt('game_impostor_count') ?? 1;
+        final saboteurCount = prefs.getInt('game_saboteur_count') ?? 0; // 🆕 NEW: Load saboteur count
+        final roundCount = prefs.getInt('game_round_count') ?? 3;
+        final timerDuration = prefs.getInt('game_timer_duration') ?? 60;
+        final impostorsKnowEachOther = prefs.getBool('game_impostors_know_each_other') ?? false;
+
+        print("PlayerBloc: Loaded settings from SharedPreferences:");
+        print("- impostorCount = $impostorCount");
+        print("- saboteurCount = $saboteurCount"); // 🆕 NEW: Debug print
+        print("- roundCount = $roundCount");
+        print("- timerDuration = $timerDuration");
+        print("- impostorsKnowEachOther = $impostorsKnowEachOther");
+
+        // Create a new game with settings from SharedPreferences (only if no game with categories exists)
+        game = await gameRepository.createGame(
+          playerCount: event.players.length,
+          impostorCount: impostorCount,
+          saboteurCount: saboteurCount, // 🆕 NEW: Pass saboteur count
+          roundCount: roundCount,
+          timerDuration: timerDuration,
+          impostorsKnowEachOther: impostorsKnowEachOther,
+        );
+
+        print("PlayerBloc: Created NEW game with settings from SharedPreferences");
+        print("- playerCount = ${event.players.length}");
+        print("- impostorCount = $impostorCount");
+        print("- saboteurCount = $saboteurCount"); // 🆕 NEW: Debug print
+        print("- Database game.impostorCount = ${game.impostorCount}"); // Verify it's set correctly
+        print("- Database game.saboteurCount = ${game.saboteurCount}"); // 🆕 NEW: Verify saboteur count
       }
 
-      // Load settings from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final impostorCount = prefs.getInt('game_impostor_count') ?? 1;
-      final roundCount = prefs.getInt('game_round_count') ?? 3;
-      final timerDuration = prefs.getInt('game_timer_duration') ?? 60;
-      final impostorsKnowEachOther = prefs.getBool('game_impostors_know_each_other') ?? false;
-
-      print("PlayerBloc: Loaded settings from SharedPreferences:");
-      print("- impostorCount = $impostorCount");
-      print("- roundCount = $roundCount");
-      print("- timerDuration = $timerDuration");
-      print("- impostorsKnowEachOther = $impostorsKnowEachOther");
-
-      // Create a new game with settings from SharedPreferences
-      final game = await gameRepository.createGame(
-        playerCount: event.players.length,
-        impostorCount: impostorCount,
-        roundCount: roundCount,
-        timerDuration: timerDuration,
-        impostorsKnowEachOther: impostorsKnowEachOther,
-      );
-
-      print("PlayerBloc: Created game with settings from SharedPreferences");
-      print("- playerCount = ${event.players.length}");
-      print("- impostorCount = $impostorCount");
-      print("- Database game.impostorCount = ${game.impostorCount}"); // Verify it's set correctly
-
-      // Register each player with the new game ID
+      // Register each player with the game ID
       for (final player in event.players) {
         final registeredPlayer = await gameRepository.addPlayer(
           gameId: game.id,

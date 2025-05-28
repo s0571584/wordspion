@@ -5,7 +5,7 @@ class Round extends Equatable {
   final String gameId;
   final int roundNumber;
   final String mainWordId;
-  final String decoyWordId;
+  final String? decoyWordId; // Keep for backward compatibility
   final String categoryId;
   final bool isCompleted;
   final DateTime createdAt;
@@ -15,14 +15,14 @@ class Round extends Equatable {
     required this.gameId,
     required this.roundNumber,
     required this.mainWordId,
-    required this.decoyWordId,
+    this.decoyWordId, // Optional for backward compatibility
     required this.categoryId,
     required this.isCompleted,
     required this.createdAt,
   });
 
   @override
-  List<Object> get props => [
+  List<Object?> get props => [
         id,
         gameId,
         roundNumber,
@@ -40,7 +40,7 @@ class Round extends Equatable {
       gameId: map['game_id'] as String,
       roundNumber: map['round_number'] as int,
       mainWordId: map['main_word_id'] as String,
-      decoyWordId: map['decoy_word_id'] as String,
+      decoyWordId: map['decoy_word_id'] as String?, // Backward compatibility
       categoryId: map['category_id'] as String,
       isCompleted: (map['is_completed'] as int) == 1,
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
@@ -54,7 +54,7 @@ class Round extends Equatable {
       'game_id': gameId,
       'round_number': roundNumber,
       'main_word_id': mainWordId,
-      'decoy_word_id': decoyWordId,
+      'decoy_word_id': decoyWordId ?? mainWordId, // Use main word as fallback
       'category_id': categoryId,
       'is_completed': isCompleted ? 1 : 0,
       'created_at': createdAt.millisecondsSinceEpoch,
@@ -87,8 +87,7 @@ class Round extends Equatable {
   @override
   String toString() {
     return 'Round(id: $id, gameId: $gameId, roundNumber: $roundNumber, '
-        'mainWordId: $mainWordId, decoyWordId: $decoyWordId, '
-        'categoryId: $categoryId, isCompleted: $isCompleted, '
-        'createdAt: $createdAt)';
+        'mainWordId: $mainWordId, decoyWordId: $decoyWordId, categoryId: $categoryId, '
+        'isCompleted: $isCompleted, createdAt: $createdAt)';
   }
 }

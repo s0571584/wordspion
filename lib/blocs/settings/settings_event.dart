@@ -76,6 +76,7 @@ class ValidateSettings extends SettingsEvent {
 class UpdateGameSettings extends SettingsEvent {
   final int playerCount;
   final int impostorCount;
+  final int saboteurCount; // 🆕 NEW: Add saboteur count
   final int roundCount;
   final int timerDuration;
   final bool impostorsKnowEachOther;
@@ -83,6 +84,7 @@ class UpdateGameSettings extends SettingsEvent {
   const UpdateGameSettings({
     required this.playerCount,
     required this.impostorCount,
+    this.saboteurCount = 0, // 🆕 NEW: Default to 0 for backward compatibility
     required this.roundCount,
     required this.timerDuration,
     required this.impostorsKnowEachOther,
@@ -92,6 +94,7 @@ class UpdateGameSettings extends SettingsEvent {
   List<Object?> get props => [
         playerCount,
         impostorCount,
+        saboteurCount, // 🆕 NEW: Include in equality check
         roundCount,
         timerDuration,
         impostorsKnowEachOther,

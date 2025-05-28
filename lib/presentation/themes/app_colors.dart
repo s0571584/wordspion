@@ -17,6 +17,7 @@ class AppColors {
   // Semantische Farben
   static const Color team = Color(0xFF4CAF50);           // Grün für Team
   static const Color impostor = Color(0xFFF44336);       // Rot für Spione
+  static const Color saboteur = Color(0xFFFF9800);       // Orange für Saboteure
   
   // Neutralfarben
   static const Color background = Color(0xFFF5F5F5);     // Hintergrund

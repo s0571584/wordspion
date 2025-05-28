@@ -4,7 +4,7 @@ class DatabaseConstants {
 
   // Datenbank-Informationen
   static const String databaseName = 'wortspion.db';
-  static const int databaseVersion = 3;
+  static const int databaseVersion = 8; // Updated version for selected categories support
 
   // Tabellennamen
   static const String tableCategories = 'categories';
@@ -21,6 +21,9 @@ class DatabaseConstants {
   // New table names for Player Groups
   static const String tablePlayerGroups = 'player_groups';
   static const String tablePlayerGroupMembers = 'player_group_members';
+
+  // Advanced spy words system
+  static const String tableSpyWordRelations = 'spy_word_relations';
 
   // Spiel-Zustände
   static const String gameStateSetup = 'SETUP';

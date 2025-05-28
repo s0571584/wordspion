@@ -2,7 +2,9 @@ import 'package:wortspion/core/utils/word_selection_utils.dart';
 import 'package:wortspion/data/models/category.dart';
 import 'package:wortspion/data/models/word.dart';
 import 'package:wortspion/data/models/word_relation.dart';
+import 'package:wortspion/data/models/spy_word_set.dart';
 import 'package:wortspion/data/sources/local/database_helper.dart';
+import 'package:wortspion/core/constants/database_constants.dart';
 
 abstract class WordRepository {
   // Categories operations
@@ -17,7 +19,8 @@ abstract class WordRepository {
 
   // Word selection operations
   Future<Word> selectMainWord(List<String> categoryIds, int difficulty);
-  Future<Word> selectDecoyWord(String mainWordId, List<String> categoryIds);
+  Future<SpyWordSet> getSpyWordSet(String mainWordId);
+  Future<bool> hasEnoughSpyWords(String mainWordId, int requiredCount);
   Future<List<WordRelation>> getRelatedWords(String wordId);
 
   // For development
@@ -133,54 +136,194 @@ class WordRepositoryImpl implements WordRepository {
   }
 
   @override
-  Future<Word> selectDecoyWord(String mainWordId, List<String> categoryIds) async {
-    // Hauptwort holen
-    final mainWord = await getWordById(mainWordId);
+  Future<SpyWordSet> getSpyWordSet(String mainWordId) async {
+    try {
+      final mainWord = await getWordById(mainWordId);
 
-    // Strategie 1: Versuche, ein Wort mit einer vordefinierten Ähnlichkeitsbeziehung zu finden
-    final relatedWords = await getRelatedWords(mainWordId);
+      final spyRelations = await databaseHelper.query(
+        DatabaseConstants.tableSpyWordRelations,
+        where: 'main_word_id = ?',
+        whereArgs: [mainWordId],
+        orderBy: 'priority ASC',
+      );
 
-    if (relatedWords.isNotEmpty) {
-      // Sortiere nach Ähnlichkeit (ideal ist 0.4-0.7)
-      relatedWords.sort((a, b) {
-        final aIdeal = (a.similarity - 0.55).abs();
-        final bIdeal = (b.similarity - 0.55).abs();
-        return aIdeal.compareTo(bIdeal);
-      });
+      final List<SpyWordInfo> spyWords = spyRelations
+          .map((relation) {
+            try {
+              return SpyWordInfo.fromMap(relation);
+            } catch (e) {
+              print('Warning: Invalid spy word relation for $mainWordId: $e');
+              return null;
+            }
+          })
+          .where((spyWord) => spyWord != null)
+          .cast<SpyWordInfo>()
+          .toList();
 
-      // Wähle eines der Top 3 ähnlichen Wörter
-      final topRelations = relatedWords.take(3).toList();
-      final selectedRelation = topRelations[DateTime.now().microsecond % topRelations.length];
+      // Validate spy words
+      final validSpyWords = spyWords.where((spyWord) {
+        // Basic validation
+        if (spyWord.text.isEmpty) {
+          print('Warning: Empty spy word text for $mainWordId');
+          return false;
+        }
+        if (spyWord.text.toLowerCase() == mainWord.text.toLowerCase()) {
+          print('Warning: Spy word identical to main word: ${spyWord.text}');
+          return false;
+        }
+        return true;
+      }).toList();
 
-      // Wähle word_id_2, wenn word_id_1 das Hauptwort ist, ansonsten word_id_1
-      final decoyWordId = selectedRelation.wordId1 == mainWordId ? selectedRelation.wordId2 : selectedRelation.wordId1;
+      // Fallback strategy if insufficient spy words
+      if (validSpyWords.length < 5) {
+        print('Info: Insufficient predefined spy words for "${mainWord.text}" (${validSpyWords.length}/5). Using fallback.');
+        final fallbackWords = await _generateFallbackSpyWords(mainWord, 5 - validSpyWords.length);
+        validSpyWords.addAll(fallbackWords);
+      }
 
-      return getWordById(decoyWordId);
+      return SpyWordSet(
+        mainWordText: mainWord.text,
+        spyWords: validSpyWords,
+      );
+    } catch (e) {
+      print('Error: Failed to get spy word set for $mainWordId: $e');
+      // Emergency fallback - return generic spy words
+      final mainWord = await getWordById(mainWordId);
+      final emergencySpyWords = await _generateEmergencySpyWords(mainWord);
+
+      return SpyWordSet(
+        mainWordText: mainWord.text,
+        spyWords: emergencySpyWords,
+      );
     }
+  }
 
-    // Strategie 2: Holen und analysieren alle Wörter aus derselben Kategorie
-    final sameCategoryWords = await databaseHelper.query(
-      'words',
-      where: 'category_id = ? AND id != ?',
-      whereArgs: [mainWord.categoryId, mainWordId],
-    );
+  @override
+  Future<bool> hasEnoughSpyWords(String mainWordId, int requiredCount) async {
+    try {
+      final spyRelations = await databaseHelper.query(
+        DatabaseConstants.tableSpyWordRelations,
+        where: 'main_word_id = ?',
+        whereArgs: [mainWordId],
+      );
 
-    if (sameCategoryWords.isNotEmpty) {
-      // Wandle zu Wort-Objekten um
-      final wordObjects = sameCategoryWords.map((map) => Word.fromMap(map)).toList();
+      return spyRelations.length >= requiredCount;
+    } catch (e) {
+      print('Error checking spy word count for $mainWordId: $e');
+      return false; // Conservative approach - assume we don't have enough
+    }
+  }
 
-      // Berechne Ähnlichkeiten und nutze den WordSelectionUtils
-      final candidates = wordObjects.map((w) => w.text).toList();
+  // Intelligent fallback for words without predefined spy words
+  Future<List<SpyWordInfo>> _generateFallbackSpyWords(Word mainWord, int count) async {
+    final List<SpyWordInfo> fallbacks = [];
+
+    // Strategy 1: Find words from same category with similar patterns
+    final categoryWords = await getWordsByCategoryId(mainWord.categoryId);
+    final candidates = categoryWords.where((w) => w.id != mainWord.id).map((w) => w.text).toList();
+
+    if (candidates.isNotEmpty && fallbacks.length < count) {
+      // Use existing word selection logic for best matches
       final selectedText = WordSelectionUtils.selectBestDecoyWord(mainWord.text, candidates);
-
-      // Finde das ausgewählte Wort-Objekt
-      final selectedWord = wordObjects.firstWhere((w) => w.text == selectedText, orElse: () => wordObjects.first);
-
-      return selectedWord;
+      fallbacks.add(SpyWordInfo(
+        text: selectedText,
+        relationshipType: 'component',
+        difficulty: 2,
+        priority: 6,
+      ));
     }
 
-    // Strategie 3: Fallback - wähle ein Wort aus einer anderen Kategorie
-    return (await getRandomWordsByCategories(categoryIds, 1)).first;
+    // Strategy 2: Category-specific fallbacks
+    switch (mainWord.categoryId) {
+      case 'food':
+        if (fallbacks.length < count) {
+          fallbacks.addAll([
+            const SpyWordInfo(text: 'Teller', relationshipType: 'tool', difficulty: 2, priority: 7),
+            const SpyWordInfo(text: 'Restaurant', relationshipType: 'location', difficulty: 2, priority: 8),
+            const SpyWordInfo(text: 'Hunger', relationshipType: 'attribute', difficulty: 3, priority: 9),
+            const SpyWordInfo(text: 'Geschmack', relationshipType: 'attribute', difficulty: 3, priority: 10),
+          ]);
+        }
+        break;
+      case 'sports':
+        if (fallbacks.length < count) {
+          fallbacks.addAll([
+            const SpyWordInfo(text: 'Training', relationshipType: 'action', difficulty: 2, priority: 7),
+            const SpyWordInfo(text: 'Mannschaft', relationshipType: 'person', difficulty: 2, priority: 8),
+            const SpyWordInfo(text: 'Sieg', relationshipType: 'attribute', difficulty: 3, priority: 9),
+            const SpyWordInfo(text: 'Wettkampf', relationshipType: 'attribute', difficulty: 3, priority: 10),
+          ]);
+        }
+        break;
+      case 'animals':
+        if (fallbacks.length < count) {
+          fallbacks.addAll([
+            const SpyWordInfo(text: 'Zoo', relationshipType: 'location', difficulty: 2, priority: 7),
+            const SpyWordInfo(text: 'Wild', relationshipType: 'attribute', difficulty: 3, priority: 8),
+            const SpyWordInfo(text: 'Futter', relationshipType: 'component', difficulty: 2, priority: 9),
+            const SpyWordInfo(text: 'Käfig', relationshipType: 'location', difficulty: 3, priority: 10),
+          ]);
+        }
+        break;
+      case 'entertainment':
+        if (fallbacks.length < count) {
+          fallbacks.addAll([
+            const SpyWordInfo(text: 'Theater', relationshipType: 'location', difficulty: 2, priority: 7),
+            const SpyWordInfo(text: 'Publikum', relationshipType: 'person', difficulty: 2, priority: 8),
+            const SpyWordInfo(text: 'Applaus', relationshipType: 'action', difficulty: 3, priority: 9),
+            const SpyWordInfo(text: 'Bühne', relationshipType: 'location', difficulty: 2, priority: 10),
+          ]);
+        }
+        break;
+      case 'places':
+        if (fallbacks.length < count) {
+          fallbacks.addAll([
+            const SpyWordInfo(text: 'Reise', relationshipType: 'action', difficulty: 2, priority: 7),
+            const SpyWordInfo(text: 'Tourist', relationshipType: 'person', difficulty: 2, priority: 8),
+            const SpyWordInfo(text: 'Kultur', relationshipType: 'attribute', difficulty: 3, priority: 9),
+            const SpyWordInfo(text: 'Geschichte', relationshipType: 'attribute', difficulty: 3, priority: 10),
+          ]);
+        }
+        break;
+      case 'professions':
+        if (fallbacks.length < count) {
+          fallbacks.addAll([
+            const SpyWordInfo(text: 'Arbeit', relationshipType: 'action', difficulty: 2, priority: 7),
+            const SpyWordInfo(text: 'Kollege', relationshipType: 'person', difficulty: 2, priority: 8),
+            const SpyWordInfo(text: 'Büro', relationshipType: 'location', difficulty: 2, priority: 9),
+            const SpyWordInfo(text: 'Gehalt', relationshipType: 'attribute', difficulty: 3, priority: 10),
+          ]);
+        }
+        break;
+      default:
+        // Generic fallbacks for unknown categories
+        if (fallbacks.length < count) {
+          fallbacks.addAll([
+            const SpyWordInfo(text: 'Zeit', relationshipType: 'attribute', difficulty: 3, priority: 7),
+            const SpyWordInfo(text: 'Mensch', relationshipType: 'person', difficulty: 3, priority: 8),
+            const SpyWordInfo(text: 'Welt', relationshipType: 'location', difficulty: 3, priority: 9),
+            const SpyWordInfo(text: 'Leben', relationshipType: 'attribute', difficulty: 3, priority: 10),
+          ]);
+        }
+    }
+
+    return fallbacks.take(count).toList();
+  }
+
+  // Emergency fallback for critical errors
+  Future<List<SpyWordInfo>> _generateEmergencySpyWords(Word mainWord) async {
+    print('Warning: Using emergency spy words for "${mainWord.text}"');
+
+    // Basic emergency spy words that should work for any context
+    final emergencyWords = [
+      const SpyWordInfo(text: 'Zeit', relationshipType: 'attribute', difficulty: 3, priority: 101),
+      const SpyWordInfo(text: 'Ort', relationshipType: 'location', difficulty: 3, priority: 102),
+      const SpyWordInfo(text: 'Person', relationshipType: 'person', difficulty: 3, priority: 103),
+      const SpyWordInfo(text: 'Sache', relationshipType: 'component', difficulty: 3, priority: 104),
+      const SpyWordInfo(text: 'Idee', relationshipType: 'attribute', difficulty: 3, priority: 105),
+    ];
+
+    return emergencyWords;
   }
 
   @override

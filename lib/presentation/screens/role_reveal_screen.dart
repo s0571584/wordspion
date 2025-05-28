@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:auto_route/auto_route.dart';
@@ -33,6 +34,19 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
   Game? _currentGame;
   String? _currentRoundId;
   late RoundBloc _roundBloc;
+
+  // Image assets for different roles - ONLY USE EXISTING IMAGES FOR CORRECT ROLES
+  static const List<String> _spyImages = [
+    'assets/images/spies/spy_1.png', // Only this one exists currently
+  ];
+
+  static const List<String> _saboteurImages = [
+    // No saboteur images yet - will fall back to icons
+  ];
+
+  static const List<String> _teammemberImages = [
+    // No teammember images yet - will fall back to icons
+  ];
 
   @override
   void initState() {
@@ -71,9 +85,11 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
         print("=== RoleRevealScreen: _initializeGame ====");
         print("Game retrieved from DB: ${game.toString()}");
         print("impostorCount in the game object = ${_currentGame!.impostorCount}, playerCount = ${_currentGame!.playerCount}");
+        print("saboteurCount in the game object = ${_currentGame!.saboteurCount}"); // 🆕 NEW: Debug print saboteur count
 
-        // Use the game's impostor count directly
-        print("RoleRevealScreen: Using game's impostorCount=${_currentGame!.impostorCount} from database");
+        // Use the game's impostor and saboteur counts directly
+        print(
+            "RoleRevealScreen: Using game's impostorCount=${_currentGame!.impostorCount}, saboteurCount=${_currentGame!.saboteurCount} from database");
 
         // Start the round
         final nextRoundNumber = (_currentGame?.currentRound ?? 0) + 1;
@@ -82,6 +98,7 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
           roundNumber: nextRoundNumber,
           playerCount: _currentGame!.playerCount,
           impostorCount: _currentGame!.impostorCount,
+          saboteurCount: _currentGame!.saboteurCount, // 🆕 NEW: Pass saboteur count
         ));
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -142,6 +159,63 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
         debugPrint("Zeige Spieler ${_currentPlayerIndex + 1} von ${_players.length}: ${_currentPlayer?.name}");
       });
     }
+  }
+
+  String? _getRandomImageForRole(PlayerRoleType? roleType) {
+    final random = Random();
+    
+    switch (roleType) {
+      case PlayerRoleType.impostor:
+        if (_spyImages.isNotEmpty) {
+          return _spyImages[random.nextInt(_spyImages.length)];
+        }
+        break;
+      case PlayerRoleType.saboteur:
+        if (_saboteurImages.isNotEmpty) {
+          return _saboteurImages[random.nextInt(_saboteurImages.length)];
+        }
+        break;
+      case PlayerRoleType.civilian:
+      case PlayerRoleType.detective:
+      default:
+        if (_teammemberImages.isNotEmpty) {
+          return _teammemberImages[random.nextInt(_teammemberImages.length)];
+        }
+        break;
+    }
+    // Return null if no images available for this role
+    return null;
+  }
+
+  Widget _buildRoleIcon(PlayerRoleType? roleType, Color roleColor) {
+    IconData roleIcon;
+    switch (roleType) {
+      case PlayerRoleType.impostor:
+        roleIcon = Icons.person_search;
+        break;
+      case PlayerRoleType.saboteur:
+        roleIcon = Icons.warning;
+        break;
+      case PlayerRoleType.detective:
+        roleIcon = Icons.search;
+        break;
+      default:
+        roleIcon = Icons.group;
+        break;
+    }
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: roleColor.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(40),
+      ),
+      child: Icon(
+        roleIcon,
+        size: 32,
+        color: roleColor,
+      ),
+    );
   }
 
   @override
@@ -206,6 +280,7 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
                   roundNumber: nextRoundNumber,
                   playerCount: _currentGame!.playerCount,
                   impostorCount: _currentGame!.impostorCount,
+                  saboteurCount: _currentGame!.saboteurCount, // 🆕 NEW: Pass saboteur count
                 ));
               },
               child: const Text('Erneut versuchen'),
@@ -300,7 +375,7 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
         color: _isRevealed ? Colors.white : Theme.of(context).primaryColor,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
-          child: _isRevealed ? _buildRevealedContent(context, state) : _buildHiddenContent(context),
+          child: _isRevealed ? _buildRevealedContent(context, state) : _buildHiddenContent(context, state),
         ),
       ),
     );
@@ -313,6 +388,9 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
 
     final roleType = state.playerRoles[_currentPlayer!.id];
     final word = state.playerWords[_currentPlayer!.id] ?? "";
+
+    // Get role-specific image (only if available for this role)
+    final String? imagePath = _getRandomImageForRole(roleType);
 
     // Get the game to check if impostors should know each other
     final game = _currentGame;
@@ -329,15 +407,66 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
       }
     }
 
+    // Get role-specific color
+    Color roleColor;
+    switch (roleType) {
+      case PlayerRoleType.impostor:
+        roleColor = Colors.red;
+        break;
+      case PlayerRoleType.saboteur:
+        roleColor = Colors.orange;
+        break;
+      case PlayerRoleType.detective:
+        roleColor = Colors.blue;
+        break;
+      default:
+        roleColor = Colors.green;
+        break;
+    }
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Role-specific character image OR fallback icon
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(40),
+              boxShadow: [
+                BoxShadow(
+                  color: roleColor.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: imagePath != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(40),
+                    child: Image.asset(
+                      imagePath,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                        return child;
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        // Fallback to role-specific icon if image fails
+                        return _buildRoleIcon(roleType, roleColor);
+                      },
+                    ),
+                  )
+                : _buildRoleIcon(roleType, roleColor), // No image available, show icon directly
+          ),
+          const SizedBox(height: 16),
           Text(
             _getRoleName(roleType),
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: roleType == PlayerRoleType.impostor ? Colors.red : Colors.green,
+                  color: roleColor,
                   fontWeight: FontWeight.bold,
                 ),
           ),
@@ -346,11 +475,38 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
             'Geheimwort: $word',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Kategorie: ${state.categoryName}',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
+
+          // 🆕 NEW: Show saboteur instructions
+          if (roleType == PlayerRoleType.saboteur) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    '🎭 Saboteur-Mission:',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Du kennst das Hauptwort, aber dein Ziel ist es, beschuldigt zu werden! Verhalte dich verdächtig genug, um gewählt zu werden.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.orange.shade800,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // Show other impostors if applicable
           if (roleType == PlayerRoleType.impostor && showOtherImpostors && otherImpostorNames.isNotEmpty) ...[
@@ -373,7 +529,7 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildHiddenContent(BuildContext context) {
+  Widget _buildHiddenContent(BuildContext context, RoundState state) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -389,6 +545,7 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
           ),
@@ -401,6 +558,8 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
     switch (role) {
       case PlayerRoleType.impostor:
         return 'Spion';
+      case PlayerRoleType.saboteur:
+        return 'Saboteur'; // 🆕 NEW: Add saboteur role name
       case PlayerRoleType.detective:
         return 'Detektiv';
       case PlayerRoleType.civilian:

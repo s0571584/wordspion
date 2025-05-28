@@ -17,6 +17,7 @@ class GameRepositoryImpl implements GameRepository {
   Future<Game> createGame({
     required int playerCount,
     required int impostorCount,
+    int saboteurCount = 0, // 🆕 NEW: Add saboteur count parameter
     required int roundCount,
     required int timerDuration,
     required bool impostorsKnowEachOther,
@@ -25,6 +26,7 @@ class GameRepositoryImpl implements GameRepository {
       id: _uuid.v4(),
       playerCount: playerCount,
       impostorCount: impostorCount,
+      saboteurCount: saboteurCount, // 🆕 NEW: Include saboteur count in Game object
       roundCount: roundCount,
       timerDuration: timerDuration,
       impostorsKnowEachOther: impostorsKnowEachOther,
@@ -35,7 +37,9 @@ class GameRepositoryImpl implements GameRepository {
 
     final gameMap = game.toMap();
     print("GameRepositoryImpl.createGame: impostorCount in Game object = ${game.impostorCount}");
+    print("GameRepositoryImpl.createGame: saboteurCount in Game object = ${game.saboteurCount}"); // 🆕 NEW: Debug print
     print("GameRepositoryImpl.createGame: impostor_count in map for DB = ${gameMap['impostor_count']}");
+    print("GameRepositoryImpl.createGame: saboteur_count in map for DB = ${gameMap['saboteur_count']}"); // 🆕 NEW: Debug print
 
     await databaseHelper.insert(
       DatabaseConstants.tableGames,
@@ -249,36 +253,36 @@ class GameRepositoryImpl implements GameRepository {
   Future<Game> createGameWithCategories({
     required int playerCount,
     required int impostorCount,
+    int saboteurCount = 0, // 🆕 NEW: Add saboteur count parameter
     required int roundCount,
     required int timerDuration,
     required bool impostorsKnowEachOther,
     required List<String> selectedCategoryIds,
   }) async {
-    // For now, we create a regular game and use the categories for word selection
-    // In the future, categories could be stored in a separate table or as a JSON field
+    // Create game with selected categories stored
     final game = Game(
       id: _uuid.v4(),
       playerCount: playerCount,
       impostorCount: impostorCount,
+      saboteurCount: saboteurCount, // 🆕 NEW: Include saboteur count in Game object
       roundCount: roundCount,
       timerDuration: timerDuration,
       impostorsKnowEachOther: impostorsKnowEachOther,
       state: DatabaseConstants.gameStateSetup,
       currentRound: 0,
       createdAt: DateTime.now(),
+      selectedCategoryIds: selectedCategoryIds, // NEW: Store selected categories
     );
 
     final gameMap = game.toMap();
     print("GameRepositoryImpl.createGameWithCategories: impostorCount in Game object = ${game.impostorCount}");
-    print("GameRepositoryImpl.createGameWithCategories: Selected categories = $selectedCategoryIds");
+    print("GameRepositoryImpl.createGameWithCategories: saboteurCount in Game object = ${game.saboteurCount}"); // 🆕 NEW: Debug print
+    print("GameRepositoryImpl.createGameWithCategories: Selected categories stored = $selectedCategoryIds");
 
     await databaseHelper.insert(
       DatabaseConstants.tableGames,
       gameMap,
     );
-
-    // TODO: In the future, store game-category relationships in a separate table
-    // For now, the categories are used during word selection but not persisted
     
     return game;
   }

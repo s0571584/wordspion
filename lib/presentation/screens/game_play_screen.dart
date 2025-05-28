@@ -45,7 +45,11 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   }
 
   void _startTimer() {
-    _isPaused = false;
+    if (mounted) {
+      setState(() {
+        _isPaused = false;
+      });
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_currentTimerValue > 0) {
         if (mounted) {

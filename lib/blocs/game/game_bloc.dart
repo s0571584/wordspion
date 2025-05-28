@@ -15,12 +15,14 @@ class GameBloc extends Bloc<GameEvent, GameState> {
 
   // Store the last user settings
   int _lastImpostorCount = 1;
+  int _lastSaboteurCount = 0; // 🆕 NEW: Store saboteur count
   int _lastRoundCount = 3;
   int _lastTimerDuration = 180;
   bool _lastImpostorsKnowEachOther = false;
 
   // Constants for SharedPreferences keys
   static const String _keyImpostorCount = 'game_impostor_count';
+  static const String _keySaboteurCount = 'game_saboteur_count'; // 🆕 NEW: Add saboteur count key
   static const String _keyRoundCount = 'game_round_count';
   static const String _keyTimerDuration = 'game_timer_duration';
   static const String _keyImpostorsKnowEachOther = 'game_impostors_know_each_other';
@@ -60,12 +62,14 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       
       // Get the values with explicit defaults
       final loadedImpostorCount = prefs.getInt(_keyImpostorCount);
+      final loadedSaboteurCount = prefs.getInt(_keySaboteurCount); // 🆕 NEW: Load saboteur count
       final loadedRoundCount = prefs.getInt(_keyRoundCount);
       final loadedTimerDuration = prefs.getInt(_keyTimerDuration);
       final loadedImpostorsKnowEachOther = prefs.getBool(_keyImpostorsKnowEachOther);
       
       // Assign values with defaults
       _lastImpostorCount = loadedImpostorCount ?? 1;
+      _lastSaboteurCount = loadedSaboteurCount ?? 0; // 🆕 NEW: Default to 0
       _lastRoundCount = loadedRoundCount ?? 3;
       _lastTimerDuration = loadedTimerDuration ?? 180;
       _lastImpostorsKnowEachOther = loadedImpostorsKnowEachOther ?? false;
@@ -73,12 +77,14 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       print('=== GameBloc: _loadSavedSettings ===');
       print('Direct values from SharedPreferences:');
       print('- impostorCount (direct) = $loadedImpostorCount');
+      print('- saboteurCount (direct) = $loadedSaboteurCount'); // 🆕 NEW: Debug print
       print('- roundCount (direct) = $loadedRoundCount');
       print('- timerDuration (direct) = $loadedTimerDuration');
       print('- impostorsKnowEachOther (direct) = $loadedImpostorsKnowEachOther');
       print('');
       print('Final values with defaults applied:');
       print('- _lastImpostorCount = $_lastImpostorCount');
+      print('- _lastSaboteurCount = $_lastSaboteurCount'); // 🆕 NEW: Debug print
       print('- _lastRoundCount = $_lastRoundCount');
       print('- _lastTimerDuration = $_lastTimerDuration');
       print('- _lastImpostorsKnowEachOther = $_lastImpostorsKnowEachOther');
@@ -94,6 +100,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_keyImpostorCount, _lastImpostorCount);
+      await prefs.setInt(_keySaboteurCount, _lastSaboteurCount); // 🆕 NEW: Save saboteur count
       await prefs.setInt(_keyRoundCount, _lastRoundCount);
       await prefs.setInt(_keyTimerDuration, _lastTimerDuration);
       await prefs.setBool(_keyImpostorsKnowEachOther, _lastImpostorsKnowEachOther);
@@ -113,6 +120,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       
       // Store user settings for future use
       _lastImpostorCount = event.impostorCount;
+      _lastSaboteurCount = event.saboteurCount; // 🆕 NEW: Store saboteur count
       _lastRoundCount = event.roundCount;
       _lastTimerDuration = event.timerDuration;
       _lastImpostorsKnowEachOther = event.impostorsKnowEachOther;
@@ -123,6 +131,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       final game = await gameRepository.createGame(
         playerCount: event.playerCount,
         impostorCount: event.impostorCount,
+        saboteurCount: event.saboteurCount, // 🆕 NEW: Pass saboteur count
         roundCount: event.roundCount,
         timerDuration: event.timerDuration,
         impostorsKnowEachOther: event.impostorsKnowEachOther,
@@ -398,6 +407,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       final game = await gameRepository.createGame(
         playerCount: playerCount,
         impostorCount: impostorCount,
+        saboteurCount: _lastSaboteurCount, // 🆕 NEW: Use stored saboteur count
         roundCount: _lastRoundCount,
         timerDuration: _lastTimerDuration,
         impostorsKnowEachOther: _lastImpostorsKnowEachOther,
@@ -445,6 +455,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       
       // Store user settings for future use
       _lastImpostorCount = event.impostorCount;
+      _lastSaboteurCount = event.saboteurCount; // 🆕 NEW: Store saboteur count
       _lastRoundCount = event.roundCount;
       _lastTimerDuration = event.timerDuration;
       _lastImpostorsKnowEachOther = event.impostorsKnowEachOther;
@@ -452,17 +463,30 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       // Save settings to SharedPreferences
       await _saveSettings();
 
+      print('🔍 DEBUG: About to call gameRepository.createGameWithCategories');
+      print('Selected categories being passed: ${event.selectedCategoryIds}');
+      
       final game = await gameRepository.createGameWithCategories(
         playerCount: event.playerCount,
         impostorCount: event.impostorCount,
+        saboteurCount: event.saboteurCount, // 🆕 NEW: Pass saboteur count
         roundCount: event.roundCount,
         timerDuration: event.timerDuration,
         impostorsKnowEachOther: event.impostorsKnowEachOther,
         selectedCategoryIds: event.selectedCategoryIds,
       );
+      
+      print('🔍 DEBUG: Game created with ID: ${game.id}');
+      print('Selected categories in created game: ${game.selectedCategoryIds}');
+      
+      // Verify the game was stored correctly by reading it back
+      final verifyGame = await gameRepository.getGameById(game.id);
+      print('🔍 DEBUG: Game retrieved from DB for verification:');
+      print('Retrieved selectedCategoryIds: ${verifyGame?.selectedCategoryIds}');
 
       emit(GameCreated(game));
     } catch (e) {
+      print('❌ ERROR in _onCreateGameWithCategories: $e');
       emit(GameError('Fehler beim Erstellen des Spiels: $e'));
     }
   }
@@ -479,6 +503,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       
       // Store user settings for future use
       _lastImpostorCount = event.impostorCount;
+      _lastSaboteurCount = event.saboteurCount; // 🆕 NEW: Store saboteur count
       _lastRoundCount = event.roundCount;
       _lastTimerDuration = event.timerDuration;
       _lastImpostorsKnowEachOther = event.impostorsKnowEachOther;
@@ -490,6 +515,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       final game = await gameRepository.createGameWithCategories(
         playerCount: playerCount,
         impostorCount: event.impostorCount,
+        saboteurCount: event.saboteurCount, // 🆕 NEW: Pass saboteur count
         roundCount: event.roundCount,
         timerDuration: event.timerDuration,
         impostorsKnowEachOther: event.impostorsKnowEachOther,

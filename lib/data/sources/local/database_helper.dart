@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:wortspion/core/constants/database_constants.dart';
+import 'word_data_source.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -86,11 +87,13 @@ class DatabaseHelper {
         id TEXT PRIMARY KEY,
         player_count INTEGER NOT NULL,
         impostor_count INTEGER NOT NULL,
+        saboteur_count INTEGER DEFAULT 0,
         round_count INTEGER NOT NULL,
         timer_duration INTEGER NOT NULL,
         impostors_know_each_other INTEGER DEFAULT 0,
         state TEXT NOT NULL,
         current_round INTEGER DEFAULT 0,
+        selected_category_ids TEXT,
         created_at INTEGER NOT NULL,
         CHECK (impostor_count < player_count)
       )
@@ -117,7 +120,7 @@ class DatabaseHelper {
         round_number INTEGER NOT NULL,
         main_word_id TEXT NOT NULL,
         decoy_word_id TEXT NOT NULL,
-        category_id TEXT NOT NULL,
+        category_id TEXT NOT NULL,  
         is_completed INTEGER DEFAULT 0,
         created_at INTEGER NOT NULL,
         FOREIGN KEY (game_id) REFERENCES ${DatabaseConstants.tableGames}(id),
@@ -135,6 +138,7 @@ class DatabaseHelper {
         round_id TEXT NOT NULL,
         player_id TEXT NOT NULL,
         is_impostor INTEGER NOT NULL,
+        role_type TEXT DEFAULT "civilian",
         created_at INTEGER NOT NULL,
         FOREIGN KEY (round_id) REFERENCES ${DatabaseConstants.tableRounds}(id),
         FOREIGN KEY (player_id) REFERENCES ${DatabaseConstants.tablePlayers}(id),
@@ -201,6 +205,27 @@ class DatabaseHelper {
     // Create Player Groups tables (added in v2)
     await _createPlayerGroupTablesV2(db);
 
+    // Create Advanced Spy Words table (added in v5)
+    await db.execute('''
+      CREATE TABLE ${DatabaseConstants.tableSpyWordRelations} (
+        id TEXT PRIMARY KEY,
+        main_word_id TEXT NOT NULL,
+        spy_word TEXT NOT NULL,
+        relationship_type TEXT NOT NULL,
+        difficulty INTEGER NOT NULL,
+        priority INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (main_word_id) REFERENCES ${DatabaseConstants.tableWords}(id),
+        UNIQUE(main_word_id, priority)
+      )
+    ''');
+
+    // Create index for performance
+    await db.execute('CREATE INDEX idx_spy_word_relations_main_word ON ${DatabaseConstants.tableSpyWordRelations}(main_word_id)');
+
+    // Validate word data before seeding
+    await _validateWordData();
+
     // Initial-Daten laden
     await _seedData(db);
   }
@@ -215,10 +240,26 @@ class DatabaseHelper {
       // Upgrade to version 3: Update round_results table for scoring system
       await _updateRoundResultsTableV3(db);
     }
-    // Add more upgrade steps here for future versions, e.g.:
-    // if (oldVersion < 4) {
-    //   await db.execute('ALTER TABLE some_table ADD COLUMN new_column TEXT');
-    // }
+    if (oldVersion < 4) {
+      // Upgrade to version 4: Add saboteur support
+      await _addSaboteurSupportV4(db);
+    }
+    if (oldVersion < 5) {
+      // Upgrade to version 5: Add advanced spy words system
+      await _addAdvancedSpyWordsSystemV5(db);
+    }
+    if (oldVersion < 6) {
+      // Upgrade to version 6: Update to balanced spy words
+      await _updateSpyWordsV6(db);
+    }
+    if (oldVersion < 7) {
+      // Upgrade to version 7: Expand word categories to 20 words each
+      await _expandWordCategoriesV7(db);
+    }
+    if (oldVersion < 8) {
+      // Upgrade to version 8: Add selected categories support
+      await _addSelectedCategoriesV8(db);
+    }
   }
 
   // Helper method to update round_results table for v3 (scoring system)
@@ -246,6 +287,91 @@ class DatabaseHelper {
     ''');
   }
 
+  // Helper method to add saboteur support for v4
+  Future<void> _addSaboteurSupportV4(Database db) async {
+    // Add saboteur_count column to games table
+    await db.execute('ALTER TABLE ${DatabaseConstants.tableGames} ADD COLUMN saboteur_count INTEGER DEFAULT 0');
+
+    // Add role_type column to player_roles table to support multiple role types
+    // For now, we'll keep the existing is_impostor column for backward compatibility
+    // In a future version, we might migrate fully to a role_type system
+    await db.execute('ALTER TABLE ${DatabaseConstants.tablePlayerRoles} ADD COLUMN role_type TEXT DEFAULT "civilian"');
+
+    // Update existing records to match role_type with is_impostor
+    await db.execute('''
+      UPDATE ${DatabaseConstants.tablePlayerRoles} 
+      SET role_type = CASE 
+        WHEN is_impostor = 1 THEN "impostor" 
+        ELSE "civilian" 
+      END
+    ''');
+
+    print('Database upgraded to v4: Added saboteur support');
+  }
+
+  // Helper method to add advanced spy words system for v5
+  Future<void> _addAdvancedSpyWordsSystemV5(Database db) async {
+    // Create enhanced spy word relations table
+    await db.execute('''
+      CREATE TABLE ${DatabaseConstants.tableSpyWordRelations} (
+        id TEXT PRIMARY KEY,
+        main_word_id TEXT NOT NULL,
+        spy_word TEXT NOT NULL,
+        relationship_type TEXT NOT NULL,
+        difficulty INTEGER NOT NULL,
+        priority INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (main_word_id) REFERENCES ${DatabaseConstants.tableWords}(id),
+        UNIQUE(main_word_id, priority)
+      )
+    ''');
+
+    // Create index for performance
+    await db.execute('CREATE INDEX idx_spy_word_relations_main_word ON ${DatabaseConstants.tableSpyWordRelations}(main_word_id)');
+
+    // Remove decoy_word_id column from rounds table (no longer needed)
+    // Note: SQLite doesn't support DROP COLUMN, so we'll leave it for backward compatibility
+    // The Round model simply ignores this column now
+
+    // Clear existing spy word relations and re-seed with new organized data
+    await db.delete(DatabaseConstants.tableSpyWordRelations);
+    await _seedSpyWords(db);
+
+    print('Database upgraded to v5: Added advanced spy words system');
+  }
+
+  // Helper method to update spy words for v6
+  Future<void> _updateSpyWordsV6(Database db) async {
+    // Clear existing spy word relations
+    await db.delete(DatabaseConstants.tableSpyWordRelations);
+
+    // Re-seed with balanced spy words from WordDataSource
+    await _seedSpyWords(db);
+
+    print('Database upgraded to v6: Updated to balanced spy words');
+  }
+
+  // Helper method to expand word categories for v7
+  Future<void> _expandWordCategoriesV7(Database db) async {
+    // Clear existing words and categories
+    await db.delete(DatabaseConstants.tableSpyWordRelations);
+    await db.delete(DatabaseConstants.tableWords);
+    await db.delete(DatabaseConstants.tableCategories);
+
+    // Re-seed with complete organized data from WordDataSource
+    await _seedData(db);
+
+    print('Database upgraded to v7: Expanded word categories to 20 words each');
+  }
+
+  // Helper method to add selected categories support for v8
+  Future<void> _addSelectedCategoriesV8(Database db) async {
+    // Add selected_category_ids column to games table
+    await db.execute('ALTER TABLE ${DatabaseConstants.tableGames} ADD COLUMN selected_category_ids TEXT');
+
+    print('Database upgraded to v8: Added selected categories support');
+  }
+
   // Helper method to create player group tables, used in onCreate and onUpgrade
   Future<void> _createPlayerGroupTablesV2(Database db) async {
     await db.execute('''
@@ -270,161 +396,252 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_player_group_members_group_id ON ${DatabaseConstants.tablePlayerGroupMembers}(group_id)');
   }
 
-  // Seeding der Datenbank mit Initial-Daten
+  // Validation method for word data integrity
+  Future<void> _validateWordData() async {
+    final validation = WordDataSource.validateData();
+    
+    if (validation['is_valid']) {
+      print('✅ Word data validation passed!');
+    } else {
+      print('❌ Word data validation failed:');
+      for (var issue in validation['issues']) {
+        print('  - $issue');
+      }
+    }
+    
+    print('📊 Statistics: ${validation['statistics']}');
+  }
+
+  // Seeding der Datenbank mit Initial-Daten (NEW CLEAN VERSION)
   Future<void> _seedData(Database db) async {
-    // Kategorien einfügen
-    final List<Map<String, dynamic>> categories = [
-      {'id': 'entertainment', 'name': 'Unterhaltung', 'description': 'Filme, Serien, Musik und mehr', 'is_default': 1},
-      {'id': 'sports', 'name': 'Sport', 'description': 'Sportarten, Teams und Athleten', 'is_default': 1},
-      {'id': 'animals', 'name': 'Tiere', 'description': 'Verschiedene Tierarten', 'is_default': 1},
-      {'id': 'food', 'name': 'Essen & Trinken', 'description': 'Gerichte, Zutaten und Getränke', 'is_default': 1},
-      {'id': 'places', 'name': 'Orte', 'description': 'Städte, Länder und Sehenswürdigkeiten', 'is_default': 1},
-      {'id': 'professions', 'name': 'Berufe', 'description': 'Berufe und Tätigkeiten', 'is_default': 1},
-      {'id': 'technology', 'name': 'Technik', 'description': 'Geräte, Software und Internet', 'is_default': 0},
-      {'id': 'everyday', 'name': 'Alltag', 'description': 'Alltagsgegenstände und -aktivitäten', 'is_default': 0},
-    ];
+    // Get organized data from WordDataSource
+    final categories = WordDataSource.categories;
+    final words = WordDataSource.getAllWords();
+    final spyWords = WordDataSource.getAllSpyWords();
 
-    // Wörter für die Kategorien
-    final List<Map<String, dynamic>> words = [
-      // Unterhaltung
-      {'id': 'ent_001', 'category_id': 'entertainment', 'text': 'Star Wars', 'difficulty': 1},
-      {'id': 'ent_002', 'category_id': 'entertainment', 'text': 'Netflix', 'difficulty': 1},
-      {'id': 'ent_003', 'category_id': 'entertainment', 'text': 'Beethoven', 'difficulty': 2},
-      {'id': 'ent_004', 'category_id': 'entertainment', 'text': 'Harry Potter', 'difficulty': 1},
-      {'id': 'ent_005', 'category_id': 'entertainment', 'text': 'Game of Thrones', 'difficulty': 2},
-      {'id': 'ent_006', 'category_id': 'entertainment', 'text': 'Herr der Ringe', 'difficulty': 2},
-      {'id': 'ent_007', 'category_id': 'entertainment', 'text': 'Mozart', 'difficulty': 2},
-      {'id': 'ent_008', 'category_id': 'entertainment', 'text': 'Disney', 'difficulty': 1},
-      {'id': 'ent_009', 'category_id': 'entertainment', 'text': 'Superheld', 'difficulty': 1},
-      {'id': 'ent_010', 'category_id': 'entertainment', 'text': 'Kino', 'difficulty': 1},
-
-      // Sport
-      {'id': 'spo_001', 'category_id': 'sports', 'text': 'Fußball', 'difficulty': 1},
-      {'id': 'spo_002', 'category_id': 'sports', 'text': 'Basketball', 'difficulty': 1},
-      {'id': 'spo_003', 'category_id': 'sports', 'text': 'Tennis', 'difficulty': 1},
-      {'id': 'spo_004', 'category_id': 'sports', 'text': 'Olympiade', 'difficulty': 2},
-      {'id': 'spo_005', 'category_id': 'sports', 'text': 'Schwimmen', 'difficulty': 1},
-      {'id': 'spo_006', 'category_id': 'sports', 'text': 'Handball', 'difficulty': 1},
-      {'id': 'spo_007', 'category_id': 'sports', 'text': 'Formel 1', 'difficulty': 2},
-      {'id': 'spo_008', 'category_id': 'sports', 'text': 'Marathon', 'difficulty': 2},
-      {'id': 'spo_009', 'category_id': 'sports', 'text': 'Golf', 'difficulty': 1},
-      {'id': 'spo_010', 'category_id': 'sports', 'text': 'Volleyball', 'difficulty': 1},
-
-      // Tiere
-      {'id': 'ani_001', 'category_id': 'animals', 'text': 'Elefant', 'difficulty': 1},
-      {'id': 'ani_002', 'category_id': 'animals', 'text': 'Löwe', 'difficulty': 1},
-      {'id': 'ani_003', 'category_id': 'animals', 'text': 'Delfin', 'difficulty': 1},
-      {'id': 'ani_004', 'category_id': 'animals', 'text': 'Pinguin', 'difficulty': 1},
-      {'id': 'ani_005', 'category_id': 'animals', 'text': 'Adler', 'difficulty': 1},
-      {'id': 'ani_006', 'category_id': 'animals', 'text': 'Giraffe', 'difficulty': 1},
-      {'id': 'ani_007', 'category_id': 'animals', 'text': 'Nashorn', 'difficulty': 1},
-      {'id': 'ani_008', 'category_id': 'animals', 'text': 'Panda', 'difficulty': 1},
-      {'id': 'ani_009', 'category_id': 'animals', 'text': 'Krokodil', 'difficulty': 1},
-      {'id': 'ani_010', 'category_id': 'animals', 'text': 'Orca', 'difficulty': 2},
-
-      // Essen & Trinken
-      {'id': 'food_001', 'category_id': 'food', 'text': 'Pizza', 'difficulty': 1},
-      {'id': 'food_002', 'category_id': 'food', 'text': 'Sushi', 'difficulty': 1},
-      {'id': 'food_003', 'category_id': 'food', 'text': 'Pasta', 'difficulty': 1},
-      {'id': 'food_004', 'category_id': 'food', 'text': 'Kaffee', 'difficulty': 1},
-      {'id': 'food_005', 'category_id': 'food', 'text': 'Schokolade', 'difficulty': 1},
-      {'id': 'food_006', 'category_id': 'food', 'text': 'Hamburger', 'difficulty': 1},
-      {'id': 'food_007', 'category_id': 'food', 'text': 'Erdbeere', 'difficulty': 1},
-      {'id': 'food_008', 'category_id': 'food', 'text': 'Kartoffel', 'difficulty': 1},
-      {'id': 'food_009', 'category_id': 'food', 'text': 'Käse', 'difficulty': 1},
-      {'id': 'food_010', 'category_id': 'food', 'text': 'Champagner', 'difficulty': 2},
-
-      // Orte
-      {'id': 'plc_001', 'category_id': 'places', 'text': 'Paris', 'difficulty': 1},
-      {'id': 'plc_002', 'category_id': 'places', 'text': 'New York', 'difficulty': 1},
-      {'id': 'plc_003', 'category_id': 'places', 'text': 'Berlin', 'difficulty': 1},
-      {'id': 'plc_004', 'category_id': 'places', 'text': 'Tokio', 'difficulty': 1},
-      {'id': 'plc_005', 'category_id': 'places', 'text': 'Rom', 'difficulty': 1},
-      {'id': 'plc_006', 'category_id': 'places', 'text': 'Ägypten', 'difficulty': 1},
-      {'id': 'plc_007', 'category_id': 'places', 'text': 'Australien', 'difficulty': 1},
-      {'id': 'plc_008', 'category_id': 'places', 'text': 'Himalaya', 'difficulty': 2},
-      {'id': 'plc_009', 'category_id': 'places', 'text': 'Amazonas', 'difficulty': 2},
-      {'id': 'plc_010', 'category_id': 'places', 'text': 'Venedig', 'difficulty': 1},
-
-      // Berufe
-      {'id': 'prof_001', 'category_id': 'professions', 'text': 'Arzt', 'difficulty': 1},
-      {'id': 'prof_002', 'category_id': 'professions', 'text': 'Lehrer', 'difficulty': 1},
-      {'id': 'prof_003', 'category_id': 'professions', 'text': 'Koch', 'difficulty': 1},
-      {'id': 'prof_004', 'category_id': 'professions', 'text': 'Pilot', 'difficulty': 1},
-      {'id': 'prof_005', 'category_id': 'professions', 'text': 'Polizist', 'difficulty': 1},
-      {'id': 'prof_006', 'category_id': 'professions', 'text': 'Anwalt', 'difficulty': 1},
-      {'id': 'prof_007', 'category_id': 'professions', 'text': 'Ingenieur', 'difficulty': 1},
-      {'id': 'prof_008', 'category_id': 'professions', 'text': 'Künstler', 'difficulty': 1},
-      {'id': 'prof_009', 'category_id': 'professions', 'text': 'Schauspieler', 'difficulty': 1},
-      {'id': 'prof_010', 'category_id': 'professions', 'text': 'Astronaut', 'difficulty': 2},
-
-      // Technik
-      {'id': 'tech_001', 'category_id': 'technology', 'text': 'Smartphone', 'difficulty': 1},
-      {'id': 'tech_002', 'category_id': 'technology', 'text': 'Internet', 'difficulty': 1},
-      {'id': 'tech_003', 'category_id': 'technology', 'text': 'Computer', 'difficulty': 1},
-      {'id': 'tech_004', 'category_id': 'technology', 'text': 'Roboter', 'difficulty': 1},
-      {'id': 'tech_005', 'category_id': 'technology', 'text': 'Künstliche Intelligenz', 'difficulty': 2},
-
-      // Alltag
-      {'id': 'day_001', 'category_id': 'everyday', 'text': 'Schlüssel', 'difficulty': 1},
-      {'id': 'day_002', 'category_id': 'everyday', 'text': 'Uhr', 'difficulty': 1},
-      {'id': 'day_003', 'category_id': 'everyday', 'text': 'Brille', 'difficulty': 1},
-      {'id': 'day_004', 'category_id': 'everyday', 'text': 'Tasche', 'difficulty': 1},
-      {'id': 'day_005', 'category_id': 'everyday', 'text': 'Buch', 'difficulty': 1},
-    ];
-
-    // Ähnlichkeitsbeziehungen zwischen Wörtern
-    final List<Map<String, dynamic>> relations = [
-      {'word_id_1': 'ent_001', 'word_id_2': 'ent_006', 'similarity': 0.6}, // Star Wars - Herr der Ringe
-      {'word_id_1': 'ent_003', 'word_id_2': 'ent_007', 'similarity': 0.8}, // Beethoven - Mozart
-      {'word_id_1': 'ent_004', 'word_id_2': 'ent_006', 'similarity': 0.7}, // Harry Potter - Herr der Ringe
-      {'word_id_1': 'spo_001', 'word_id_2': 'spo_006', 'similarity': 0.6}, // Fußball - Handball
-      {'word_id_1': 'spo_002', 'word_id_2': 'spo_010', 'similarity': 0.5}, // Basketball - Volleyball
-      {'word_id_1': 'ani_001', 'word_id_2': 'ani_007', 'similarity': 0.4}, // Elefant - Nashorn
-      {'word_id_1': 'ani_003', 'word_id_2': 'ani_010', 'similarity': 0.7}, // Delfin - Orca
-      {'word_id_1': 'food_001', 'word_id_2': 'food_006', 'similarity': 0.5}, // Pizza - Hamburger
-      {'word_id_1': 'food_003', 'word_id_2': 'food_008', 'similarity': 0.3}, // Pasta - Kartoffel
-      {'word_id_1': 'plc_001', 'word_id_2': 'plc_005', 'similarity': 0.5}, // Paris - Rom
-      {'word_id_1': 'plc_006', 'word_id_2': 'plc_009', 'similarity': 0.4}, // Ägypten - Amazonas
-      {'word_id_1': 'prof_001', 'word_id_2': 'prof_005', 'similarity': 0.3}, // Arzt - Polizist
-      {'word_id_1': 'prof_003', 'word_id_2': 'prof_009', 'similarity': 0.2}, // Koch - Schauspieler
-      {'word_id_1': 'tech_001', 'word_id_2': 'tech_003', 'similarity': 0.6}, // Smartphone - Computer
-      {'word_id_1': 'day_001', 'word_id_2': 'day_004', 'similarity': 0.2}, // Schlüssel - Tasche
-    ];
-
-    // Batch-Insert für bessere Performance
+    // Batch-Insert for better performance
     final batch = db.batch();
 
+    // Insert categories
     for (var category in categories) {
       batch.insert(DatabaseConstants.tableCategories, category);
     }
 
+    // Insert words
     for (var word in words) {
       batch.insert(DatabaseConstants.tableWords, word);
     }
 
-    for (var relation in relations) {
-      batch.insert(DatabaseConstants.tableWordRelations, relation);
+    // Insert spy word relations
+    for (var spyWord in spyWords) {
+      batch.insert(DatabaseConstants.tableSpyWordRelations, spyWord);
     }
 
     await batch.commit(noResult: true);
+    
+    print('✅ Database seeded successfully!');
+    print('📊 Categories: ${categories.length}');
+    print('📝 Words: ${words.length}');
+    print('🕵️ Spy Words: ${spyWords.length}');
   }
 
-  // Hilfsmethode zum Ausführen von Transaktionen
-  Future<T> runTransaction<T>(Future<T> Function(Transaction txn) action) async {
+  // Helper method to seed only spy words (used in upgrades)
+  Future<void> _seedSpyWords(Database db) async {
+    final spyWords = WordDataSource.getAllSpyWords();
+
+    final batch = db.batch();
+    for (var spyWord in spyWords) {
+      batch.insert(DatabaseConstants.tableSpyWordRelations, spyWord);
+    }
+    await batch.commit(noResult: true);
+
+    print('✅ Spy words seeded: ${spyWords.length}');
+  }
+
+  // =========================================================================
+  // CATEGORY SELECTION METHODS - For filtering words by chosen categories
+  // =========================================================================
+
+  /// Get words filtered by specific categories
+  /// This is the KEY METHOD for category selection functionality
+  Future<List<Map<String, dynamic>>> getWordsByCategories(List<String> categoryIds) async {
     final db = await database;
-    return db.transaction(action);
+    
+    if (categoryIds.isEmpty) {
+      // If no categories specified, return all words
+      return await db.query(DatabaseConstants.tableWords);
+    }
+
+    // Create placeholders for IN clause
+    final placeholders = categoryIds.map((id) => '?').join(',');
+    
+    final words = await db.query(
+      DatabaseConstants.tableWords,
+      where: 'category_id IN ($placeholders)',
+      whereArgs: categoryIds,
+      orderBy: 'category_id, text',
+    );
+
+    return words;
   }
 
-  // CRUD-Methoden
-
-  // Einfügen
-  Future<int> insert(String table, Map<String, dynamic> row) async {
+  /// Get spy words for specific main words (filtered by categories)
+  Future<List<Map<String, dynamic>>> getSpyWordsByCategories(List<String> categoryIds, {int? priority}) async {
     final db = await database;
-    return await db.insert(table, row);
+    
+    if (categoryIds.isEmpty) {
+      // If no categories specified, return all spy words
+      String whereClause = priority != null ? 'priority = ?' : '';
+      List<dynamic> whereArgs = priority != null ? [priority] : [];
+      
+      return await db.query(
+        DatabaseConstants.tableSpyWordRelations,
+        where: whereClause.isNotEmpty ? whereClause : null,
+        whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+        orderBy: 'main_word_id, priority',
+      );
+    }
+
+    // Create placeholders for IN clause
+    final placeholders = categoryIds.map((id) => '?').join(',');
+    
+    // Join with words table to filter by category
+    String whereClause = '''
+      ${DatabaseConstants.tableSpyWordRelations}.main_word_id IN (
+        SELECT id FROM ${DatabaseConstants.tableWords} 
+        WHERE category_id IN ($placeholders)
+      )
+    ''';
+    
+    List<dynamic> whereArgs = List.from(categoryIds);
+    
+    if (priority != null) {
+      whereClause += ' AND ${DatabaseConstants.tableSpyWordRelations}.priority = ?';
+      whereArgs.add(priority);
+    }
+
+    final spyWords = await db.query(
+      DatabaseConstants.tableSpyWordRelations,
+      where: whereClause,
+      whereArgs: whereArgs,
+      orderBy: '${DatabaseConstants.tableSpyWordRelations}.main_word_id, ${DatabaseConstants.tableSpyWordRelations}.priority',
+    );
+
+    return spyWords;
   }
 
-  // Lesen
+  /// Get random word from specific categories for game setup
+  Future<Map<String, dynamic>?> getRandomWordFromCategories(List<String> categoryIds) async {
+    final words = await getWordsByCategories(categoryIds);
+    
+    if (words.isEmpty) return null;
+    
+    final randomIndex = DateTime.now().millisecondsSinceEpoch % words.length;
+    return words[randomIndex];
+  }
+
+  /// Get spy words for a specific main word
+  Future<List<Map<String, dynamic>>> getSpyWordsForWord(String mainWordId, {int? maxCount}) async {
+    final db = await database;
+    
+    final spyWords = await db.query(
+      DatabaseConstants.tableSpyWordRelations,
+      where: 'main_word_id = ?',
+      whereArgs: [mainWordId],
+      orderBy: 'priority',
+      limit: maxCount,
+    );
+
+    return spyWords;
+  }
+
+  /// Validate that selected categories exist and have words
+  Future<Map<String, dynamic>> validateCategorySelection(List<String> categoryIds) async {
+    final db = await database;
+    
+    // Check if categories exist
+    final placeholders = categoryIds.map((id) => '?').join(',');
+    final existingCategories = await db.query(
+      DatabaseConstants.tableCategories,
+      where: 'id IN ($placeholders)',
+      whereArgs: categoryIds,
+    );
+
+    // Check word count per category
+    final Map<String, int> wordCounts = {};
+    for (String categoryId in categoryIds) {
+      final count = Sqflite.firstIntValue(await db.rawQuery(
+        'SELECT COUNT(*) FROM ${DatabaseConstants.tableWords} WHERE category_id = ?',
+        [categoryId],
+      )) ?? 0;
+      wordCounts[categoryId] = count;
+    }
+
+    // Calculate totals
+    final totalWords = wordCounts.values.fold(0, (sum, count) => sum + count);
+    final emptyCategoriesCount = wordCounts.values.where((count) => count == 0).length;
+
+    return {
+      'isValid': existingCategories.length == categoryIds.length && totalWords > 0,
+      'existingCategories': existingCategories,
+      'missingCategories': categoryIds.where((id) => 
+        !existingCategories.any((cat) => cat['id'] == id)).toList(),
+      'wordCounts': wordCounts,
+      'totalWords': totalWords,
+      'emptyCategoriesCount': emptyCategoriesCount,
+      'hasEnoughWords': totalWords >= 10, // Minimum words needed for a game
+    };
+  }
+
+  // =========================================================================
+  // STANDARD DATABASE METHODS (Categories, Words, etc.)
+  // =========================================================================
+
+  /// Get all categories
+  Future<List<Map<String, dynamic>>> getAllCategories() async {
+    final db = await database;
+    return await db.query(DatabaseConstants.tableCategories, orderBy: 'name');
+  }
+
+  /// Get default categories
+  Future<List<Map<String, dynamic>>> getDefaultCategories() async {
+    final db = await database;
+    return await db.query(
+      DatabaseConstants.tableCategories,
+      where: 'is_default = ?',
+      whereArgs: [1],
+      orderBy: 'name',
+    );
+  }
+
+  /// Get all words
+  Future<List<Map<String, dynamic>>> getAllWords() async {
+    final db = await database;
+    return await db.query(DatabaseConstants.tableWords, orderBy: 'category_id, text');
+  }
+
+  /// Get words by category ID
+  Future<List<Map<String, dynamic>>> getWordsByCategory(String categoryId) async {
+    final db = await database;
+    return await db.query(
+      DatabaseConstants.tableWords,
+      where: 'category_id = ?',
+      whereArgs: [categoryId],
+      orderBy: 'text',
+    );
+  }
+
+  // =========================================================================
+  // GENERIC DATABASE OPERATIONS - Used by repositories
+  // =========================================================================
+
+  /// Generic insert method
+  Future<int> insert(String table, Map<String, dynamic> values) async {
+    final db = await database;
+    return await db.insert(table, values);
+  }
+
+  /// Generic query method
   Future<List<Map<String, dynamic>>> query(
     String table, {
     bool? distinct,
@@ -452,23 +669,23 @@ class DatabaseHelper {
     );
   }
 
-  // Aktualisieren
+  /// Generic update method
   Future<int> update(
     String table,
-    Map<String, dynamic> row, {
+    Map<String, dynamic> values, {
     String? where,
     List<dynamic>? whereArgs,
   }) async {
     final db = await database;
     return await db.update(
       table,
-      row,
+      values,
       where: where,
       whereArgs: whereArgs,
     );
   }
 
-  // Löschen
+  /// Generic delete method
   Future<int> delete(
     String table, {
     String? where,
@@ -482,7 +699,7 @@ class DatabaseHelper {
     );
   }
 
-  // Raw-Query ausführen
+  /// Generic raw query method
   Future<List<Map<String, dynamic>>> rawQuery(
     String sql, [
     List<dynamic>? arguments,
@@ -491,10 +708,17 @@ class DatabaseHelper {
     return await db.rawQuery(sql, arguments);
   }
 
-  // Datenbank schließen
+  /// Run operations in a transaction
+  Future<T> runTransaction<T>(Future<T> Function(Transaction txn) action) async {
+    final db = await database;
+    return await db.transaction(action);
+  }
+
+  /// Close database connection
   Future<void> close() async {
-    if (_database != null) {
-      await _database!.close();
+    final db = _database;
+    if (db != null) {
+      await db.close();
       _database = null;
     }
   }

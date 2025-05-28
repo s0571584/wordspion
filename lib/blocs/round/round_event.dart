@@ -43,16 +43,18 @@ class StartRound extends RoundEvent {
   final int roundNumber;
   final int playerCount;
   final int impostorCount;
+  final int saboteurCount; // 🆕 NEW: Add saboteur count
 
   const StartRound({
     required this.gameId,
     required this.roundNumber,
     required this.playerCount,
     required this.impostorCount,
+    this.saboteurCount = 0, // 🆕 NEW: Default to 0 for backward compatibility
   });
 
   @override
-  List<Object> get props => [gameId, roundNumber, playerCount, impostorCount];
+  List<Object> get props => [gameId, roundNumber, playerCount, impostorCount, saboteurCount];
 }
 
 class EndRound extends RoundEvent {
@@ -105,15 +107,17 @@ class AssignRoles extends RoundEvent {
   final String roundId;
   final List<Player> players;
   final int impostorCount;
+  final int saboteurCount; // 🆕 NEW: Add saboteur count
 
   const AssignRoles({
     required this.roundId,
     required this.players,
     required this.impostorCount,
+    this.saboteurCount = 0, // 🆕 NEW: Default to 0 for backward compatibility
   });
 
   @override
-  List<Object> get props => [roundId, players, impostorCount];
+  List<Object> get props => [roundId, players, impostorCount, saboteurCount];
 }
 
 class GuessWord extends RoundEvent {

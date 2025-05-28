@@ -7,6 +7,7 @@ abstract class GameRepository {
   Future<Game> createGame({
     required int playerCount,
     required int impostorCount,
+    int saboteurCount = 0, // 🆕 NEW: Add saboteur count parameter
     required int roundCount,
     required int timerDuration,
     required bool impostorsKnowEachOther,
@@ -36,6 +37,7 @@ abstract class GameRepository {
   Future<Game> createGameWithCategories({
     required int playerCount,
     required int impostorCount,
+    int saboteurCount = 0, // 🆕 NEW: Add saboteur count parameter
     required int roundCount,
     required int timerDuration,
     required bool impostorsKnowEachOther,

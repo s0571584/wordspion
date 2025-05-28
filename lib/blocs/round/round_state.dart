@@ -6,6 +6,7 @@ import 'package:wortspion/data/models/round_result.dart';
 import 'package:wortspion/data/models/round_score_result.dart';
 import 'package:wortspion/data/models/word.dart';
 import 'package:wortspion/data/models/word_guess.dart';
+import 'package:wortspion/data/models/spy_word_set.dart';
 
 abstract class RoundState extends Equatable {
   const RoundState();
@@ -25,6 +26,8 @@ class RoundStarted extends RoundState {
   final String categoryName;
   final Map<String, PlayerRoleType> playerRoles;
   final Map<String, String> playerWords;
+  final SpyWordSet spyWordSet; // NEW: Include spy word set for debugging/admin
+  final Map<String, SpyWordInfo> spyWordAssignments; // NEW: Track spy word assignments
 
   const RoundStarted({
     required this.roundId,
@@ -33,6 +36,8 @@ class RoundStarted extends RoundState {
     required this.categoryName,
     required this.playerRoles,
     required this.playerWords,
+    required this.spyWordSet,
+    required this.spyWordAssignments,
   });
 
   @override
@@ -43,6 +48,8 @@ class RoundStarted extends RoundState {
         categoryName,
         playerRoles,
         playerWords,
+        spyWordSet,
+        spyWordAssignments,
       ];
 
   PlayerRoleType getRoleForPlayer(String playerId) {
@@ -122,45 +129,48 @@ class PlayerRoleInfo {
     required this.roleName,
     required this.isImpostor,
   });
+
+  // Add saboteur detection
+  bool get isSaboteur => roleName == 'Saboteur';
 }
 
 class RoundCreated extends RoundState {
   final Round round;
   final Word mainWord;
-  final Word decoyWord;
+  final SpyWordSet spyWordSet;
 
   const RoundCreated({
     required this.round,
     required this.mainWord,
-    required this.decoyWord,
+    required this.spyWordSet,
   });
 
   @override
-  List<Object> get props => [round, mainWord, decoyWord];
+  List<Object> get props => [round, mainWord, spyWordSet];
 }
 
 class RoundLoaded extends RoundState {
   final Round round;
   final Word mainWord;
-  final Word decoyWord;
+  final SpyWordSet spyWordSet;
   final String categoryName;
 
   const RoundLoaded({
     required this.round,
     required this.mainWord,
-    required this.decoyWord,
+    required this.spyWordSet,
     required this.categoryName,
   });
 
   @override
-  List<Object> get props => [round, mainWord, decoyWord, categoryName];
+  List<Object> get props => [round, mainWord, spyWordSet, categoryName];
 }
 
 class RolesAssigned extends RoundState {
   final Round round;
   final List<PlayerRole> roles;
   final Word mainWord;
-  final Word decoyWord;
+  final SpyWordSet spyWordSet;
   final List<String> impostorIds;
   final bool impostorsKnowEachOther;
 
@@ -168,7 +178,7 @@ class RolesAssigned extends RoundState {
     required this.round,
     required this.roles,
     required this.mainWord,
-    required this.decoyWord,
+    required this.spyWordSet,
     this.impostorIds = const [],
     this.impostorsKnowEachOther = false,
   });
@@ -178,7 +188,7 @@ class RolesAssigned extends RoundState {
         round,
         roles,
         mainWord,
-        decoyWord,
+        spyWordSet,
         impostorIds,
         impostorsKnowEachOther,
       ];
@@ -214,15 +224,15 @@ class RoundCompleted extends RoundState {
   final Round round;
   final RoundResult result;
   final Word mainWord;
-  final Word decoyWord;
+  final SpyWordSet spyWordSet;
 
   const RoundCompleted({
     required this.round,
     required this.result,
     required this.mainWord,
-    required this.decoyWord,
+    required this.spyWordSet,
   });
 
   @override
-  List<Object> get props => [round, result, mainWord, decoyWord];
+  List<Object> get props => [round, result, mainWord, spyWordSet];
 }

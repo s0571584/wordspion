@@ -14,7 +14,6 @@ abstract class RoundRepository {
     required String gameId,
     required int roundNumber,
     required String mainWordId,
-    required String decoyWordId,
     required String categoryId,
   });
 
@@ -28,6 +27,7 @@ abstract class RoundRepository {
     required String roundId,
     required List<Player> players,
     required int impostorCount,
+    int saboteurCount = 0, // 🆕 NEW: Add saboteur count parameter
   });
 
   Future<List<PlayerRole>> getPlayerRolesByRoundId(String roundId);
@@ -75,23 +75,40 @@ class RoundRepositoryImpl implements RoundRepository {
     required String gameId,
     required int roundNumber,
     required String mainWordId,
-    required String decoyWordId,
     required String categoryId,
   }) async {
-    final round = Round(
-      id: _uuid.v4(),
-      gameId: gameId,
-      roundNumber: roundNumber,
-      mainWordId: mainWordId,
-      decoyWordId: decoyWordId,
-      categoryId: categoryId,
-      isCompleted: false,
-      createdAt: DateTime.now(),
-    );
+    final roundId = _uuid.v4();
+    final now = DateTime.now();
+    
+    // Explicitly construct the map to ensure all fields are included
+    final roundMap = {
+      'id': roundId,
+      'game_id': gameId,
+      'round_number': roundNumber,
+      'main_word_id': mainWordId,
+      'decoy_word_id': mainWordId, // Use main word as decoy for backward compatibility
+      'category_id': categoryId,
+      'is_completed': 0,
+      'created_at': now.millisecondsSinceEpoch,
+    };
+    
+    print('Creating round with map: $roundMap'); // Debug logging
 
     await databaseHelper.insert(
       DatabaseConstants.tableRounds,
-      round.toMap(),
+      roundMap,
+    );
+
+    // Create Round object for return
+    final round = Round(
+      id: roundId,
+      gameId: gameId,
+      roundNumber: roundNumber,
+      mainWordId: mainWordId,
+      decoyWordId: mainWordId,
+      categoryId: categoryId,
+      isCompleted: false,
+      createdAt: now,
     );
 
     return round;
@@ -156,34 +173,61 @@ class RoundRepositoryImpl implements RoundRepository {
     required String roundId,
     required List<Player> players,
     required int impostorCount,
+    int saboteurCount = 0, // 🆕 NEW: Add saboteur count parameter
   }) async {
-    print("RoundRepositoryImpl.assignRoles: Assigning $impostorCount impostors among ${players.length} players");
+    print("RoundRepositoryImpl.assignRoles: Assigning $impostorCount impostors and $saboteurCount saboteurs among ${players.length} players");
     
-    // Ensure impostorCount doesn't exceed player count - 2
-    final actualImpostorCount = impostorCount > players.length - 2 
-        ? players.length - 2 
-        : impostorCount;
-        
-    if (actualImpostorCount != impostorCount) {
-      print("RoundRepositoryImpl.assignRoles: WARNING - Adjusted impostorCount from $impostorCount to $actualImpostorCount");
+    // 🆕 NEW: Validate role counts
+    final totalSpecialRoles = impostorCount + saboteurCount;
+    final minCivilians = 1; // At least 1 civilian required
+    final maxSpecialRoles = players.length - minCivilians;
+    
+    if (totalSpecialRoles > maxSpecialRoles) {
+      print("RoundRepositoryImpl.assignRoles: ERROR - Too many special roles requested. Total: $totalSpecialRoles, Max allowed: $maxSpecialRoles");
+      throw ArgumentError('Cannot assign $totalSpecialRoles special roles with only ${players.length} players. Need at least $minCivilians civilian(s).');
     }
     
-    // Rolle den Spielern zufällig zuweisen
+    // Assign roles in priority order: Saboteurs first, then Impostors, then Civilians
     final shuffledPlayers = List<Player>.from(players)..shuffle();
-    final impostors = shuffledPlayers.take(actualImpostorCount).toList();
     
+    // 1. Assign saboteurs first
+    final saboteurs = shuffledPlayers.take(saboteurCount).toList();
+    print("RoundRepositoryImpl.assignRoles: Selected ${saboteurs.length} saboteurs: ${saboteurs.map((p) => p.name).join(', ')}");
+    
+    // 2. Assign impostors from remaining players
+    final remainingAfterSaboteurs = shuffledPlayers.skip(saboteurCount).toList();
+    final impostors = remainingAfterSaboteurs.take(impostorCount).toList();
     print("RoundRepositoryImpl.assignRoles: Selected ${impostors.length} impostors: ${impostors.map((p) => p.name).join(', ')}");
+    
+    // 3. Remaining players are civilians
+    final civilians = shuffledPlayers.skip(saboteurCount + impostorCount).toList();
+    print("RoundRepositoryImpl.assignRoles: Remaining ${civilians.length} civilians: ${civilians.map((p) => p.name).join(', ')}");
 
     final playerRoles = <PlayerRole>[];
 
     await databaseHelper.runTransaction((txn) async {
       for (final player in players) {
-        final isImpostor = impostors.contains(player);
+        // Determine role type and backward-compatible isImpostor flag
+        late PlayerRoleType roleType;
+        late bool isImpostor;
+        
+        if (saboteurs.contains(player)) {
+          roleType = PlayerRoleType.saboteur;
+          isImpostor = false; // Saboteur is not an impostor for backward compatibility
+        } else if (impostors.contains(player)) {
+          roleType = PlayerRoleType.impostor;
+          isImpostor = true;
+        } else {
+          roleType = PlayerRoleType.civilian;
+          isImpostor = false;
+        }
+        
         final role = PlayerRole(
           id: _uuid.v4(),
           roundId: roundId,
           playerId: player.id,
           isImpostor: isImpostor,
+          roleType: roleType, // 🆕 NEW: Set role type
           createdAt: DateTime.now(),
         );
 

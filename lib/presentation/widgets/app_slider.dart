@@ -24,6 +24,11 @@ class AppSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Safety checks to prevent crashes
+    final double safeMax = max > min ? max : min + 1.0;
+    final double safeValue = value.clamp(min, safeMax);
+    final int safeDivisions = safeMax > min ? divisions : 1;
+
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
         activeTrackColor: activeColor ?? theme.colorScheme.primary,
@@ -37,11 +42,11 @@ class AppSlider extends StatelessWidget {
         ),
       ),
       child: Slider(
-        value: value,
+        value: safeValue,
         min: min,
-        max: max,
-        divisions: divisions,
-        label: value.round().toString(),
+        max: safeMax,
+        divisions: safeDivisions,
+        label: safeValue.round().toString(),
         onChanged: onChanged,
       ),
     );

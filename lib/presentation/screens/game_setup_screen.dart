@@ -17,6 +17,7 @@ import 'package:wortspion/presentation/themes/app_spacing.dart';
 import 'package:wortspion/presentation/themes/app_typography.dart';
 import 'package:wortspion/presentation/widgets/app_slider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:math' as Math;
 
 @RoutePage()
 class GameSetupScreen extends StatefulWidget {
@@ -38,6 +39,7 @@ class GameSetupScreen extends StatefulWidget {
 class _GameSetupScreenState extends State<GameSetupScreen> {
   int _playerCount = 5;
   int _impostorCount = 1;
+  int _saboteurCount = 0; // 🆕 NEW: Add saboteur count with default 0
   int _roundCount = 3;
   int _timerDuration = 60;
   bool _impostorsKnowEachOther = false;
@@ -46,6 +48,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
 
   // Constants for SharedPreferences keys
   static const String _keyImpostorCount = 'game_impostor_count';
+  static const String _keySaboteurCount = 'game_saboteur_count'; // 🆕 NEW: Add saboteur count key
   static const String _keyRoundCount = 'game_round_count';
   static const String _keyTimerDuration = 'game_timer_duration';
   static const String _keyImpostorsKnowEachOther = 'game_impostors_know_each_other';
@@ -60,13 +63,11 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
 
     _loadSettings();
 
-    // If from group, set player count but allow spy count to be adjustable
+    // If from group, set player count but allow role counts to be adjustable
     if (widget.fromGroup && widget.groupPlayerNames != null) {
       _playerCount = widget.groupPlayerNames!.length;
-      // Ensure spy count is valid for the group size
-      if (_impostorCount >= _playerCount - 1) {
-        _impostorCount = (_playerCount - 2).clamp(1, _playerCount - 2);
-      }
+      // Ensure role counts are valid for the group size
+      _validateRoleCounts();
     }
 
     if (widget.isSettingsOnly) {
@@ -74,6 +75,29 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     } else {
       _isEditingExistingGame = false;
     }
+  }
+
+  // 🆕 NEW: Helper method to validate role counts
+  void _validateRoleCounts() {
+    // Ensure at least 3 players
+    _playerCount = Math.max(3, _playerCount);
+
+    // At least 1 civilian is required
+    final maxSpecialRoles = Math.max(1, _playerCount - 1);
+
+    // Make sure impostorCount is at least 1
+    _impostorCount = Math.max(1, _impostorCount);
+
+    // Total special roles can't exceed maxSpecialRoles
+    if (_impostorCount + _saboteurCount > maxSpecialRoles) {
+      // Prioritize keeping impostors over saboteurs
+      _impostorCount = Math.min(_impostorCount, maxSpecialRoles);
+      _saboteurCount = Math.max(0, Math.min(_saboteurCount, maxSpecialRoles - _impostorCount));
+    }
+
+    // Final validation to ensure valid ranges
+    _impostorCount = _impostorCount.clamp(1, Math.max(1, _playerCount - 1));
+    _saboteurCount = _saboteurCount.clamp(0, Math.max(0, _playerCount - _impostorCount - 1));
   }
 
   Future<void> _loadSettings() async {
@@ -86,17 +110,16 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           _playerCount = prefs.getInt(_keyPlayerCount) ?? 5;
         }
         _impostorCount = prefs.getInt(_keyImpostorCount) ?? 1;
+        _saboteurCount = prefs.getInt(_keySaboteurCount) ?? 0; // 🆕 NEW: Load saboteur count
         _roundCount = prefs.getInt(_keyRoundCount) ?? 3;
         _timerDuration = prefs.getInt(_keyTimerDuration) ?? 60;
         _impostorsKnowEachOther = prefs.getBool(_keyImpostorsKnowEachOther) ?? false;
-        
-        // Ensure spy count is valid for current player count
-        if (_impostorCount >= _playerCount - 1) {
-          _impostorCount = (_playerCount - 2).clamp(1, _playerCount - 2);
-        }
+
+        // Ensure role counts are valid for current player count
+        _validateRoleCounts();
       });
 
-      debugPrint('Loaded settings from SharedPreferences: $_playerCount players, $_impostorCount spies');
+      debugPrint('Loaded settings from SharedPreferences: $_playerCount players, $_impostorCount spies, $_saboteurCount saboteurs');
     } catch (e) {
       debugPrint('Failed to load settings from SharedPreferences: $e');
     }
@@ -109,6 +132,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
 
       await prefs.setInt(_keyPlayerCount, _playerCount);
       await prefs.setInt(_keyImpostorCount, _impostorCount);
+      await prefs.setInt(_keySaboteurCount, _saboteurCount); // 🆕 NEW: Save saboteur count
       await prefs.setInt(_keyRoundCount, _roundCount);
       await prefs.setInt(_keyTimerDuration, _timerDuration);
       await prefs.setBool(_keyImpostorsKnowEachOther, _impostorsKnowEachOther);
@@ -117,6 +141,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       print('Saved settings to SharedPreferences:');
       print('- playerCount = $_playerCount');
       print('- impostorCount = $_impostorCount (THIS IS THE KEY VALUE!)');
+      print('- saboteurCount = $_saboteurCount'); // 🆕 NEW: Debug print saboteur count
       print('- roundCount = $_roundCount');
       print('- timerDuration = $_timerDuration');
       print('- impostorsKnowEachOther = $_impostorsKnowEachOther');
@@ -132,6 +157,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 UpdateGameSettings(
                   playerCount: _playerCount,
                   impostorCount: _impostorCount,
+                  saboteurCount: _saboteurCount, // 🆕 NEW: Include saboteur count
                   roundCount: _roundCount,
                   timerDuration: _timerDuration,
                   impostorsKnowEachOther: _impostorsKnowEachOther,
@@ -178,6 +204,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
               UpdateGameSettings(
                 playerCount: _playerCount,
                 impostorCount: _impostorCount,
+                saboteurCount: _saboteurCount, // 🆕 NEW: Include saboteur count
                 roundCount: _roundCount,
                 timerDuration: _timerDuration,
                 impostorsKnowEachOther: _impostorsKnowEachOther,
@@ -209,8 +236,13 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                   style: AppTypography.headline2,
                 ),
                 const SizedBox(height: 32),
-                _buildSettingsForm(),
-                const Spacer(),
+                // 🆕 NEW: Make settings form scrollable to prevent overflow
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: _buildSettingsForm(),
+                  ),
+                ),
+                const SizedBox(height: 16), // Reduce spacing before button
                 _buildActionButton(innerContext),
                 const SizedBox(height: 24),
               ],
@@ -236,7 +268,8 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: SingleChildScrollView( // Make scrollable for many players
+            child: SingleChildScrollView(
+              // Make scrollable for many players
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -264,10 +297,8 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
             onChanged: (value) {
               setState(() {
                 _playerCount = value.toInt();
-                // Impostoranzahl anpassen, damit es immer weniger als Spieler sind
-                if (_impostorCount >= _playerCount - 1) {
-                  _impostorCount = _playerCount - 2;
-                }
+                // Validate all role counts when player count changes
+                _validateRoleCounts();
 
                 // Save settings immediately when changed
                 _saveSettings();
@@ -283,18 +314,47 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         AppSlider(
           value: _impostorCount.toDouble(),
           min: 1,
-          max: _playerCount - 2 < 1 ? 1 : _playerCount - 2,
-          divisions: (_playerCount - 2) < 1 ? 1 : _playerCount - 2,
+          max: _playerCount > 3 ? _playerCount - 2 : 1,
+          divisions: _playerCount > 3 ? _playerCount - 2 : 1,
           onChanged: (value) {
             setState(() {
               _impostorCount = value.toInt();
-              print('GameSetupScreen: Impostor count set to: $_impostorCount for $_playerCount players');
-              print('This will be saved to SharedPreferences with key: $_keyImpostorCount');
+              // Validate role counts to ensure saboteur count is still valid
+              _validateRoleCounts();
+              print('GameSetupScreen: Impostor count set to: $_impostorCount for $_playerCount players (saboteurs: $_saboteurCount)');
 
               // Save settings immediately when changed
               _saveSettings();
             });
           },
+        ),
+        const SizedBox(height: 24),
+
+        // 🆕 NEW: Saboteur count slider
+        Text('Anzahl der Saboteure: $_saboteurCount', style: AppTypography.subtitle1),
+        const SizedBox(height: 8),
+        AppSlider(
+          value: _saboteurCount.toDouble(),
+          min: 0,
+          max: Math.max(0, _playerCount - _impostorCount - 1),
+          divisions: Math.max(1, _playerCount - _impostorCount - 1),
+          onChanged: (value) {
+            setState(() {
+              _saboteurCount = value.toInt();
+              print('GameSetupScreen: Saboteur count set to: $_saboteurCount for $_playerCount players (impostors: $_impostorCount)');
+
+              // Save settings immediately when changed
+              _saveSettings();
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _saboteurCount > 0 ? 'Saboteure kennen das Hauptwort und gewinnen, wenn sie beschuldigt werden' : 'Saboteure sind deaktiviert',
+          style: AppTypography.caption.copyWith(
+            color: _saboteurCount > 0 ? Colors.orange : Colors.grey[600],
+            fontStyle: FontStyle.italic,
+          ),
         ),
         const SizedBox(height: 24),
 
@@ -376,6 +436,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                       UpdateGameSettings(
                         playerCount: _playerCount,
                         impostorCount: _impostorCount,
+                        saboteurCount: _saboteurCount, // 🆕 NEW: Include saboteur count
                         roundCount: _roundCount,
                         timerDuration: _timerDuration,
                         impostorsKnowEachOther: _impostorsKnowEachOther,
@@ -395,7 +456,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                       : () async {
                           // Save settings and wait for completion
                           await _saveSettings();
-                          
+
                           // Navigate to category selection screen
                           if (widget.fromGroup && widget.groupPlayerNames != null) {
                             // Small delay to ensure settings are persisted
@@ -410,6 +471,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                                   child: CategorySelectionScreen(
                                     playerCount: _playerCount,
                                     impostorCount: _impostorCount,
+                                    saboteurCount: _saboteurCount, // 🆕 NEW: Pass saboteur count
                                     roundCount: _roundCount,
                                     timerDuration: _timerDuration,
                                     impostorsKnowEachOther: _impostorsKnowEachOther,
@@ -429,6 +491,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                                   child: CategorySelectionScreen(
                                     playerCount: _playerCount,
                                     impostorCount: _impostorCount,
+                                    saboteurCount: _saboteurCount, // 🆕 NEW: Pass saboteur count
                                     roundCount: _roundCount,
                                     timerDuration: _timerDuration,
                                     impostorsKnowEachOther: _impostorsKnowEachOther,

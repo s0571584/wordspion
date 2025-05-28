@@ -7,6 +7,8 @@ import 'package:wortspion/data/models/player_role.dart';
 import 'package:wortspion/data/models/round.dart';
 import 'package:wortspion/data/models/round_score_result.dart';
 import 'package:wortspion/data/models/word.dart';
+import 'package:wortspion/data/models/category.dart' as Category;
+import 'package:wortspion/data/models/spy_word_set.dart';
 import 'package:wortspion/data/repositories/game_repository.dart';
 import 'package:wortspion/data/repositories/round_repository.dart';
 import 'package:wortspion/data/repositories/word_repository.dart';
@@ -62,7 +64,7 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
 
       late Round round;
       late Word mainWord;
-      late Word decoyWord;
+      late SpyWordSet spyWordSet;
 
       // Find existing round for this game and round number
       final existingRounds = await roundRepository.getRoundsByGameId(game.id);
@@ -72,20 +74,75 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         // Use the existing round
         round = existingRound.first;
         mainWord = await wordRepository.getWordById(round.mainWordId);
-        decoyWord = await wordRepository.getWordById(round.decoyWordId);
+        spyWordSet = await wordRepository.getSpyWordSet(round.mainWordId);
       } else {
-        // Get default categories for word selection
-        final categories = await wordRepository.getDefaultCategories();
-        if (categories.isEmpty) {
-          emit(const RoundError(message: 'Keine Kategorien gefunden'));
-          return;
-        }
+        // Get selected categories from the game, fallback to default if none selected
+        List<String> categoryIds;
+        if (game.selectedCategoryIds != null && game.selectedCategoryIds!.isNotEmpty) {
+          // Use user-selected categories
+          categoryIds = game.selectedCategoryIds!;
+          print("RoundBloc: Using user-selected categories: $categoryIds");
+        } else {
+          // TEMPORARY FIX: For old games without selected categories, force Tiere category
+          print("🔧 RoundBloc: Game has no selected categories (old game). Checking for Tiere category...");
+          final allCategories = await wordRepository.getAllCategories();
+          Category.Category? tiereCategory;
 
-        final categoryIds = categories.map((c) => c.id).toList();
+          for (final category in allCategories) {
+            if (category.name.toLowerCase() == 'tiere') {
+              tiereCategory = category;
+              break;
+            }
+          }
+
+          if (tiereCategory != null) {
+            categoryIds = [tiereCategory.id];
+            print("🎯 RoundBloc: FORCING Tiere category for old game: ${tiereCategory.id}");
+          } else {
+            // Final fallback to default categories
+            final categories = await wordRepository.getDefaultCategories();
+            if (categories.isEmpty) {
+              emit(const RoundError(message: 'Keine Kategorien gefunden'));
+              return;
+            }
+            categoryIds = categories.map((c) => c.id).toList();
+            print("RoundBloc: Using default categories as final fallback: $categoryIds");
+          }
+        }
 
         // Create a new round with random words
         mainWord = await wordRepository.selectMainWord(categoryIds, 0);
-        decoyWord = await wordRepository.selectDecoyWord(mainWord.id, categoryIds);
+
+        // DEBUG: Verify the selected word is from the right category
+        print("🔍 DEBUG: Selected main word '${mainWord.text}' from category: ${mainWord.categoryId}");
+
+        // Get and print the actual category name for verification
+        try {
+          final selectedWordCategory = await wordRepository.getCategoryById(mainWord.categoryId);
+          print("🔍 DEBUG: Word category name: '${selectedWordCategory.name}'");
+          if (selectedWordCategory.name.toLowerCase() != 'tiere') {
+            print("🚨 WARNING: Expected 'Tiere' but got '${selectedWordCategory.name}'!");
+          } else {
+            print("✅ SUCCESS: Word is correctly from 'Tiere' category!");
+          }
+        } catch (e) {
+          print("❌ Error getting category name: $e");
+        }
+
+        try {
+          spyWordSet = await wordRepository.getSpyWordSet(mainWord.id);
+
+          // Validate the spy word set
+          if (spyWordSet.spyWords.isEmpty) {
+            print('Warning: No spy words available for "${mainWord.text}". This may affect gameplay.');
+          } else {
+            print('Info: Loaded ${spyWordSet.spyWords.length} spy words for "${mainWord.text}"');
+          }
+        } catch (e) {
+          print('Error: Failed to load spy words for "${mainWord.text}": $e');
+          emit(RoundError(message: 'Fehler beim Laden der Spy-Wörter: $e'));
+          return;
+        }
 
         try {
           // Create the round
@@ -93,7 +150,6 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
             gameId: game.id,
             roundNumber: event.roundNumber,
             mainWordId: mainWord.id,
-            decoyWordId: decoyWord.id,
             categoryId: mainWord.categoryId,
           );
         } catch (e) {
@@ -108,7 +164,14 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
 
           round = retryExistingRound.first;
           mainWord = await wordRepository.getWordById(round.mainWordId);
-          decoyWord = await wordRepository.getWordById(round.decoyWordId);
+
+          try {
+            spyWordSet = await wordRepository.getSpyWordSet(round.mainWordId);
+          } catch (e) {
+            print('Error: Failed to load spy words during retry: $e');
+            emit(RoundError(message: 'Fehler beim Laden der Spy-Wörter: $e'));
+            return;
+          }
         }
       }
 
@@ -125,6 +188,7 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
               roundId: round.id,
               players: players,
               impostorCount: event.impostorCount,
+              saboteurCount: event.saboteurCount, // 🆕 NEW: Pass saboteur count
             );
 
       // Get the category name
@@ -133,13 +197,55 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
       // Create maps for player roles and words
       final Map<String, PlayerRoleType> playerRoles = {};
       final Map<String, String> playerWords = {};
+      final Map<String, SpyWordInfo> spyWordAssignments = {};
 
+      // Get all spy players for smart word assignment
+      final spyPlayers = roles.where((role) => role.roleType == PlayerRoleType.impostor).toList();
+
+      // Validate spy word availability
+      if (spyPlayers.isNotEmpty && spyWordSet.spyWords.isEmpty) {
+        print('Error: No spy words available but ${spyPlayers.length} spies assigned');
+        emit(const RoundError(message: 'Keine Spy-Wörter verfügbar für die zugewiesenen Spione'));
+        return;
+      }
+
+      if (spyPlayers.length > spyWordSet.spyWords.length) {
+        print('Warning: ${spyPlayers.length} spies but only ${spyWordSet.spyWords.length} spy words. Some spies will get duplicate words.');
+      }
+
+      // Assign different spy words to different spies
+      for (int i = 0; i < spyPlayers.length; i++) {
+        final spyPlayerId = spyPlayers[i].playerId;
+
+        if (i < spyWordSet.spyWords.length) {
+          // Assign unique spy word
+          final spyWordInfo = spyWordSet.spyWords[i];
+          playerWords[spyPlayerId] = spyWordInfo.text;
+          spyWordAssignments[spyPlayerId] = spyWordInfo;
+          print('Info: Assigned spy "${spyWordInfo.text}" (${spyWordInfo.relationshipType}) to spy ${i + 1}');
+        } else {
+          // If more spies than words, cycle through with priority-based selection
+          final wordIndex = i % spyWordSet.spyWords.length;
+          final spyWordInfo = spyWordSet.spyWords[wordIndex];
+          playerWords[spyPlayerId] = spyWordInfo.text;
+          spyWordAssignments[spyPlayerId] = spyWordInfo;
+          print('Info: Assigned spy "${spyWordInfo.text}" (duplicate) to spy ${i + 1}');
+        }
+      }
+
+      // Assign roles and words to all players
       for (final role in roles) {
-        // Set role type
-        playerRoles[role.playerId] = role.isImpostor ? PlayerRoleType.impostor : PlayerRoleType.civilian;
+        playerRoles[role.playerId] = role.roleType;
 
-        // Set word based on role
-        playerWords[role.playerId] = role.isImpostor ? decoyWord.text : mainWord.text;
+        // Assign words based on role (skip spies as they were assigned above)
+        if (role.roleType == PlayerRoleType.saboteur) {
+          // Saboteurs know the main word (they want to be caught!)
+          playerWords[role.playerId] = mainWord.text;
+        } else if (role.roleType == PlayerRoleType.civilian) {
+          // Civilians get the main word
+          playerWords[role.playerId] = mainWord.text;
+        }
+        // Spies already assigned above with unique words
       }
 
       emit(RoundStarted(
@@ -149,6 +255,8 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         categoryName: category.name,
         playerRoles: playerRoles,
         playerWords: playerWords,
+        spyWordSet: spyWordSet, // Include for debugging/admin view
+        spyWordAssignments: spyWordAssignments, // Track which spy got which word
       ));
     } catch (e) {
       emit(RoundError(message: 'Fehler beim Starten der Runde: $e'));
@@ -168,25 +276,21 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         event.difficulty,
       );
 
-      // Täuschungswort wählen
-      final decoyWord = await wordRepository.selectDecoyWord(
-        mainWord.id,
-        event.categoryIds,
-      );
+      // Spy word set holen
+      final spyWordSet = await wordRepository.getSpyWordSet(mainWord.id);
 
       // Runde erstellen
       final round = await roundRepository.createRound(
         gameId: event.gameId,
         roundNumber: event.roundNumber,
         mainWordId: mainWord.id,
-        decoyWordId: decoyWord.id,
         categoryId: mainWord.categoryId,
       );
 
       emit(RoundCreated(
         round: round,
         mainWord: mainWord,
-        decoyWord: decoyWord,
+        spyWordSet: spyWordSet,
       ));
     } catch (e) {
       emit(RoundError(message: 'Fehler beim Erstellen der Runde: $e'));
@@ -216,13 +320,13 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
       }
 
       final mainWord = await wordRepository.getWordById(round.mainWordId);
-      final decoyWord = await wordRepository.getWordById(round.decoyWordId);
+      final spyWordSet = await wordRepository.getSpyWordSet(round.mainWordId);
       final category = await wordRepository.getCategoryById(round.categoryId);
 
       emit(RoundLoaded(
         round: round,
         mainWord: mainWord,
-        decoyWord: decoyWord,
+        spyWordSet: spyWordSet,
         categoryName: category.name,
       ));
     } catch (e) {
@@ -249,6 +353,7 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         roundId: event.roundId,
         players: event.players,
         impostorCount: event.impostorCount,
+        saboteurCount: event.saboteurCount, // 🆕 NEW: Pass saboteur count
       );
 
       // Aktuelle Runde holen
@@ -261,9 +366,9 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         return;
       }
 
-      // Hauptwort und Täuschungswort laden
+      // Hauptwort und Spy word set laden
       final mainWord = await wordRepository.getWordById(round.mainWordId);
-      final decoyWord = await wordRepository.getWordById(round.decoyWordId);
+      final spyWordSet = await wordRepository.getSpyWordSet(round.mainWordId);
 
       // Spione identifizieren, wenn sie einander kennen sollen
       List<String> impostorIds = [];
@@ -275,7 +380,7 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         round: round,
         roles: roles,
         mainWord: mainWord,
-        decoyWord: decoyWord,
+        spyWordSet: spyWordSet,
         impostorIds: impostorIds,
         impostorsKnowEachOther: game.impostorsKnowEachOther,
       ));
@@ -311,8 +416,9 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
       }
 
       // Wort basierend auf Rolle ausgeben
-      final wordId = role.isImpostor ? round.decoyWordId : round.mainWordId;
-      final word = await wordRepository.getWordById(wordId);
+      // NOTE: This method may need updating for the new spy word system
+      // For now, use the main word for all players
+      final word = await wordRepository.getWordById(round.mainWordId);
 
       emit(PlayerRoleLoaded(
         role: role,
@@ -386,30 +492,46 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
 
       final List<PlayerRoleInfo> playerRolesInfo = [];
       final List<String> spyIds = [];
+      final List<String> saboteurIds = []; // 🆕 NEW: Now properly populated
 
       for (final role in rolesFromRepo) {
         final player = playerMap[role.playerId];
+
+        // 🆕 NEW: Enhanced role name detection
+        String roleName;
+        if (role.roleType == PlayerRoleType.saboteur) {
+          roleName = 'Saboteur';
+        } else if (role.roleType == PlayerRoleType.impostor) {
+          roleName = 'Spion';
+        } else {
+          roleName = 'Bürger';
+        }
+
         playerRolesInfo.add(PlayerRoleInfo(
           playerId: role.playerId,
           playerName: player?.name ?? 'Unbekannter Spieler',
-          roleName: role.isImpostor ? 'Spion' : 'Bürger',
-          isImpostor: role.isImpostor,
+          roleName: roleName,
+          isImpostor: role.isImpostor, // Keep for backward compatibility
         ));
-        
-        if (role.isImpostor) {
+
+        // 🆕 NEW: Properly categorize players by role
+        if (role.roleType == PlayerRoleType.impostor) {
           spyIds.add(role.playerId);
+        } else if (role.roleType == PlayerRoleType.saboteur) {
+          saboteurIds.add(role.playerId);
         }
       }
 
       // Calculate scores based on voting results
       List<RoundScoreResult> scoreResults;
       bool actualImpostorsWon;
-      
+
       if (event.skipToResults) {
         // Use SkipToResults logic (spies automatically win)
         scoreResults = scoreCalculator.calculateSkipResults(
           players: allGamePlayers,
           spies: spyIds,
+          saboteurs: saboteurIds, // 🆕 NEW: Now properly populated with actual saboteur IDs
         );
         actualImpostorsWon = true; // Spies always win when skipping
       } else {
@@ -417,32 +539,31 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         scoreResults = scoreCalculator.calculateRoundScores(
           players: allGamePlayers,
           spies: spyIds,
+          saboteurs: saboteurIds, // 🆕 NEW: Now properly populated with actual saboteur IDs
           accusedSpies: event.accusedPlayerIds ?? [],
           wordGuessed: event.wordGuessed,
           wordGuesserId: event.wordGuesserId,
         );
-        
+
         // 🚨 FIX: Calculate the actual winner based on score results instead of trusting the event
         // Team wins if they correctly identified all spies (evidenced by team members getting +2 points)
-        final teamMembersWithPoints = scoreResults.where((result) => 
-          !result.isSpy && result.scoreChange > 0
-        ).length;
-        
+        final teamMembersWithPoints = scoreResults.where((result) => !result.isSpy && result.scoreChange > 0).length;
+
         final totalTeamMembers = scoreResults.where((result) => !result.isSpy).length;
-        
+
         // If all team members got points, it means they correctly identified all spies
         actualImpostorsWon = !(teamMembersWithPoints == totalTeamMembers && teamMembersWithPoints > 0);
-        
+
         print('=== RoundBloc: Winner Calculation ===');
         print('Original impostorsWon from event: ${event.impostorsWon}');
         print('Team members with points: $teamMembersWithPoints / $totalTeamMembers');
         print('Calculated actualImpostorsWon: $actualImpostorsWon');
         print('Score results: ${scoreResults.map((r) => "${r.playerName}: ${r.scoreChange} (${r.reason})").join(", ")}');
       }
-      
+
       // Update player scores in the database
       await gameRepository.updatePlayerScores(scoreResults);
-      
+
       // Save the round results
       await gameRepository.saveRoundResults(
         round.gameId,

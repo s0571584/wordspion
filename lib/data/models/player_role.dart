@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum PlayerRoleType { impostor, detective, civilian }
+enum PlayerRoleType { impostor, detective, civilian, saboteur }
 
 // Extension to get string representation of the role
 extension PlayerRoleTypeExtension on PlayerRoleType {
@@ -12,8 +12,42 @@ extension PlayerRoleTypeExtension on PlayerRoleType {
         return 'Detective';
       case PlayerRoleType.civilian:
         return 'Civilian';
+      case PlayerRoleType.saboteur:
+        return 'Saboteur';
       default:
         return 'Unknown';
+    }
+  }
+
+  // Convert to database string representation
+  String get databaseValue {
+    switch (this) {
+      case PlayerRoleType.impostor:
+        return 'impostor';
+      case PlayerRoleType.detective:
+        return 'detective';
+      case PlayerRoleType.civilian:
+        return 'civilian';
+      case PlayerRoleType.saboteur:
+        return 'saboteur';
+      default:
+        return 'civilian';
+    }
+  }
+
+  // Convert from database string representation
+  static PlayerRoleType fromDatabaseValue(String value) {
+    switch (value.toLowerCase()) {
+      case 'impostor':
+        return PlayerRoleType.impostor;
+      case 'detective':
+        return PlayerRoleType.detective;
+      case 'civilian':
+        return PlayerRoleType.civilian;
+      case 'saboteur':
+        return PlayerRoleType.saboteur;
+      default:
+        return PlayerRoleType.civilian;
     }
   }
 
@@ -22,13 +56,16 @@ extension PlayerRoleTypeExtension on PlayerRoleType {
   bool get isDetective => this == PlayerRoleType.detective;
 
   bool get isCivilian => this == PlayerRoleType.civilian;
+
+  bool get isSaboteur => this == PlayerRoleType.saboteur;
 }
 
 class PlayerRole extends Equatable {
   final String id;
   final String roundId;
   final String playerId;
-  final bool isImpostor;
+  final bool isImpostor; // 🔄 BACKWARD COMPATIBILITY: Keep existing field
+  final PlayerRoleType roleType; // 🆕 NEW: Enhanced role type system
   final DateTime createdAt;
 
   const PlayerRole({
@@ -36,8 +73,14 @@ class PlayerRole extends Equatable {
     required this.roundId,
     required this.playerId,
     required this.isImpostor,
+    this.roleType = PlayerRoleType.civilian, // 🆕 NEW: Default to civilian
     required this.createdAt,
   });
+
+  // 🆕 NEW: Convenience getters for role checking
+  bool get isSaboteur => roleType.isSaboteur;
+  bool get isDetective => roleType.isDetective;
+  bool get isCivilian => roleType.isCivilian && !isImpostor; // Civilian but not impostor
 
   @override
   List<Object> get props => [
@@ -45,16 +88,32 @@ class PlayerRole extends Equatable {
         roundId,
         playerId,
         isImpostor,
+        roleType, // 🆕 NEW: Include in equality check
         createdAt,
       ];
 
   // Factory method for creating from database
   factory PlayerRole.fromMap(Map<String, dynamic> map) {
+    // 🔄 BACKWARD COMPATIBILITY: Handle both old and new schema
+    final roleTypeStr = map['role_type'] as String?;
+    final isImpostorFlag = (map['is_impostor'] as int) == 1;
+    
+    // Determine role type from database
+    PlayerRoleType roleType;
+    if (roleTypeStr != null && roleTypeStr.isNotEmpty) {
+      // New schema: use role_type column
+      roleType = PlayerRoleTypeExtension.fromDatabaseValue(roleTypeStr);
+    } else {
+      // Old schema: derive from is_impostor
+      roleType = isImpostorFlag ? PlayerRoleType.impostor : PlayerRoleType.civilian;
+    }
+
     return PlayerRole(
       id: map['id'] as String,
       roundId: map['round_id'] as String,
       playerId: map['player_id'] as String,
-      isImpostor: (map['is_impostor'] as int) == 1,
+      isImpostor: isImpostorFlag,
+      roleType: roleType,
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
     );
   }
@@ -65,7 +124,8 @@ class PlayerRole extends Equatable {
       'id': id,
       'round_id': roundId,
       'player_id': playerId,
-      'is_impostor': isImpostor ? 1 : 0,
+      'is_impostor': isImpostor ? 1 : 0, // 🔄 BACKWARD COMPATIBILITY: Keep existing field
+      'role_type': roleType.databaseValue, // 🆕 NEW: Store role type
       'created_at': createdAt.millisecondsSinceEpoch,
     };
   }
@@ -76,6 +136,7 @@ class PlayerRole extends Equatable {
     String? roundId,
     String? playerId,
     bool? isImpostor,
+    PlayerRoleType? roleType, // 🆕 NEW: Add role type parameter
     DateTime? createdAt,
   }) {
     return PlayerRole(
@@ -83,6 +144,7 @@ class PlayerRole extends Equatable {
       roundId: roundId ?? this.roundId,
       playerId: playerId ?? this.playerId,
       isImpostor: isImpostor ?? this.isImpostor,
+      roleType: roleType ?? this.roleType, // 🆕 NEW: Use provided or current value
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -90,6 +152,6 @@ class PlayerRole extends Equatable {
   @override
   String toString() {
     return 'PlayerRole(id: $id, roundId: $roundId, playerId: $playerId, '
-        'isImpostor: $isImpostor, createdAt: $createdAt)';
+        'isImpostor: $isImpostor, roleType: $roleType, createdAt: $createdAt)';
   }
 }
