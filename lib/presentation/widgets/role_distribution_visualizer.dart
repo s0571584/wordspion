@@ -22,13 +22,6 @@ class RoleDistributionVisualizer extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Role breakdown header
-        Text(
-          'Rollenverteilung',
-          style: AppTypography.subtitle2.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        
         // Visual representation of roles
         Container(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
@@ -43,11 +36,11 @@ class RoleDistributionVisualizer extends StatelessWidget {
               // Role icons row
               _buildRoleIconsRow(),
               const SizedBox(height: 16),
-              
+
               // Progress bar showing distribution
               _buildDistributionBar(),
               const SizedBox(height: 12),
-              
+
               // Role count details
               _buildRoleDetails(),
             ],
@@ -97,7 +90,7 @@ class RoleDistributionVisualizer extends StatelessWidget {
       duration: const Duration(milliseconds: 300),
       child: Column(
         children: [
-          Container(
+          SizedBox(
             height: 50,
             width: 50,
             child: Stack(
@@ -234,7 +227,7 @@ class RoleDistributionVisualizer extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Gesamte Spieler:', style: AppTypography.body2),
+            const Text('Gesamte Spieler:', style: AppTypography.body2),
             Text(
               '$totalPlayers',
               style: AppTypography.body2.copyWith(fontWeight: FontWeight.bold),
