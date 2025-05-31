@@ -16,6 +16,8 @@ import 'package:wortspion/presentation/screens/category_selection_screen.dart';
 import 'package:wortspion/presentation/themes/app_spacing.dart';
 import 'package:wortspion/presentation/themes/app_typography.dart';
 import 'package:wortspion/presentation/widgets/app_slider.dart';
+import 'package:wortspion/presentation/widgets/enhanced_slider.dart';
+import 'package:wortspion/presentation/widgets/role_distribution_visualizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as Math;
 
@@ -226,16 +228,13 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 24),
-                Text(
-                  _isEditingExistingGame
-                      ? 'Einstellungen bearbeiten'
-                      : widget.fromGroup
-                          ? 'Spieleinstellungen für Gruppe'
-                          : 'Spieleinstellungen',
-                  style: AppTypography.headline2,
+                // Role distribution visualizer
+                RoleDistributionVisualizer(
+                  totalPlayers: _playerCount,
+                  spyCount: _impostorCount,
+                  saboteurCount: _saboteurCount,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
                 // 🆕 NEW: Make settings form scrollable to prevent overflow
                 Expanded(
                   child: SingleChildScrollView(
@@ -289,11 +288,13 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           // Regular player count slider
           Text('Spieleranzahl: $_playerCount', style: AppTypography.subtitle1),
           const SizedBox(height: 8),
-          AppSlider(
+          EnhancedSlider(
             value: _playerCount.toDouble(),
             min: 3,
             max: 10,
             divisions: 7,
+            rangeHint: 'Mehr Spieler = mehr Möglichkeiten',
+            activeColor: Colors.blue,
             onChanged: (value) {
               setState(() {
                 _playerCount = value.toInt();
@@ -309,13 +310,35 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         ],
 
         // Spion-Anzahl
-        Text('Anzahl der Spione: $_impostorCount', style: AppTypography.subtitle1),
+        Row(
+          children: [
+            Text('Anzahl der Spione: $_impostorCount', style: AppTypography.subtitle1),
+            const SizedBox(width: 8),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'von ${Math.max(1, _playerCount - 1 - _saboteurCount)} möglich',
+                style: AppTypography.caption.copyWith(
+                  color: Colors.red.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
-        AppSlider(
+        EnhancedSlider(
           value: _impostorCount.toDouble(),
           min: 1,
-          max: _playerCount > 3 ? _playerCount - 2 : 1,
-          divisions: _playerCount > 3 ? _playerCount - 2 : 1,
+          max: Math.max(1, _playerCount - _saboteurCount - 1).toDouble(),
+          divisions: Math.max(1, _playerCount - _saboteurCount - 2),
+          rangeHint: 'Mind. 1 Zivilist benötigt',
+          activeColor: Colors.red,
           onChanged: (value) {
             setState(() {
               _impostorCount = value.toInt();
@@ -331,13 +354,35 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         const SizedBox(height: 24),
 
         // 🆕 NEW: Saboteur count slider
-        Text('Anzahl der Saboteure: $_saboteurCount', style: AppTypography.subtitle1),
+        Row(
+          children: [
+            Text('Anzahl der Saboteure: $_saboteurCount', style: AppTypography.subtitle1),
+            const SizedBox(width: 8),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'von ${Math.max(0, _playerCount - _impostorCount - 1)} möglich',
+                style: AppTypography.caption.copyWith(
+                  color: Colors.orange.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
-        AppSlider(
+        EnhancedSlider(
           value: _saboteurCount.toDouble(),
           min: 0,
-          max: Math.max(0, _playerCount - _impostorCount - 1),
+          max: Math.max(0, _playerCount - _impostorCount - 1).toDouble(),
           divisions: Math.max(1, _playerCount - _impostorCount - 1),
+          rangeHint: _saboteurCount == 0 ? 'Optional' : 'Mind. 1 Zivilist benötigt',
+          activeColor: Colors.orange,
           onChanged: (value) {
             setState(() {
               _saboteurCount = value.toInt();
@@ -349,11 +394,34 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           },
         ),
         const SizedBox(height: 8),
-        Text(
-          _saboteurCount > 0 ? 'Saboteure kennen das Hauptwort und gewinnen, wenn sie beschuldigt werden' : 'Saboteure sind deaktiviert',
-          style: AppTypography.caption.copyWith(
-            color: _saboteurCount > 0 ? Colors.orange : Colors.grey[600],
-            fontStyle: FontStyle.italic,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _saboteurCount > 0 ? Colors.orange.shade50 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _saboteurCount > 0 ? Colors.orange.shade200 : Colors.grey.shade300,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                _saboteurCount > 0 ? Icons.info : Icons.info_outline,
+                size: 16,
+                color: _saboteurCount > 0 ? Colors.orange.shade700 : Colors.grey[600],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _saboteurCount > 0 ? 'Saboteure kennen das Hauptwort und gewinnen, wenn sie beschuldigt werden' : 'Saboteure sind deaktiviert',
+                  style: AppTypography.caption.copyWith(
+                    color: _saboteurCount > 0 ? Colors.orange.shade700 : Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),
@@ -361,11 +429,12 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         // Rundenanzahl
         Text('Anzahl der Runden: $_roundCount', style: AppTypography.subtitle1),
         const SizedBox(height: 8),
-        AppSlider(
+        EnhancedSlider(
           value: _roundCount.toDouble(),
           min: 1,
           max: 5,
           divisions: 4,
+          activeColor: Colors.green,
           onChanged: (value) {
             setState(() {
               _roundCount = value.toInt();
@@ -378,16 +447,36 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         const SizedBox(height: 24),
 
         // Timer-Dauer
-        Text(
-          'Diskussionszeit: $_timerDuration Sekunden',
-          style: AppTypography.subtitle1,
+        Row(
+          children: [
+            Text(
+              'Diskussionszeit: $_timerDuration Sekunden',
+              style: AppTypography.subtitle1,
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.purple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${(_timerDuration / 60).toStringAsFixed(1)} Min',
+                style: AppTypography.caption.copyWith(
+                  color: Colors.purple.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        AppSlider(
+        EnhancedSlider(
           value: _timerDuration.toDouble(),
           min: 30,
           max: 180,
           divisions: 5,
+          activeColor: Colors.purple,
           onChanged: (value) {
             setState(() {
               _timerDuration = value.toInt();
