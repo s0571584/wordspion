@@ -293,7 +293,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
             min: 3,
             max: 10,
             divisions: 7,
-            rangeHint: 'Mehr Spieler = mehr Möglichkeiten',
             activeColor: Colors.blue,
             onChanged: (value) {
               setState(() {
@@ -337,7 +336,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           min: 1,
           max: Math.max(1, _playerCount - _saboteurCount - 1).toDouble(),
           divisions: Math.max(1, _playerCount - _saboteurCount - 2),
-          rangeHint: 'Mind. 1 Zivilist benötigt',
           activeColor: Colors.red,
           onChanged: (value) {
             setState(() {
@@ -381,7 +379,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           min: 0,
           max: Math.max(0, _playerCount - _impostorCount - 1).toDouble(),
           divisions: Math.max(1, _playerCount - _impostorCount - 1),
-          rangeHint: _saboteurCount == 0 ? 'Optional' : 'Mind. 1 Zivilist benötigt',
           activeColor: Colors.orange,
           onChanged: (value) {
             setState(() {

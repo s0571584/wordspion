@@ -574,6 +574,14 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
       // Mark the round as completed
       await roundRepository.completeRound(event.roundId);
 
+      // Calculate the actual round number we just completed
+      // The issue is that round.roundNumber in DB might be off by 1
+      // Let's calculate it based on how many rounds have been completed
+      final completedRounds = await roundRepository.getRoundsByGameId(round.gameId);
+      final actualRoundNumber = completedRounds.length; // This round we just completed
+      
+      print('🔢 ROUND NUMBER FIX: DB round.roundNumber = ${round.roundNumber}, calculated actualRoundNumber = $actualRoundNumber');
+      
       emit(RoundComplete(
         roundId: event.roundId,
         playerRoles: playerRolesInfo,
@@ -581,7 +589,7 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         impostorsWon: actualImpostorsWon, // 🚨 FIX: Use calculated value instead of event value
         wordGuessed: event.wordGuessed,
         scoreResults: scoreResults,
-        roundNumber: round.roundNumber,
+        roundNumber: actualRoundNumber, // 🚨 FIX: Use calculated round number
         totalRounds: game.roundCount,
       ));
     } catch (e) {

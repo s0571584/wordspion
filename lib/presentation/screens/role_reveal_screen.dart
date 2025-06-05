@@ -360,23 +360,33 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
   }
 
   Widget _buildRoleCard(BuildContext context, RoundState state) {
-    final cardHeight = MediaQuery.of(context).size.height * 0.3;
     final cardWidth = MediaQuery.of(context).size.width * 0.9;
+    
+    // Dynamic height based on content - smaller when hidden, larger when revealed
+    final cardHeight = _isRevealed 
+        ? null // Let content determine height when revealed
+        : MediaQuery.of(context).size.height * 0.3; // Fixed height when hidden
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+    return Container(
       height: cardHeight,
       width: cardWidth,
+      constraints: _isRevealed 
+          ? BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height * 0.4,
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            )
+          : null,
       child: Card(
         elevation: 8,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
         color: _isRevealed ? Colors.white : Theme.of(context).primaryColor,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: _isRevealed ? _buildRevealedContent(context, state) : _buildHiddenContent(context, state),
-        ),
+        child: _isRevealed 
+            ? SingleChildScrollView(
+                child: _buildRevealedContent(context, state),
+              )
+            : _buildHiddenContent(context, state),
       ),
     );
   }
