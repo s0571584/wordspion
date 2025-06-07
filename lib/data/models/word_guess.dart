@@ -39,6 +39,18 @@ class WordGuess extends Equatable {
     );
   }
 
+  // Factory method for creating from JSON (Supabase data)
+  factory WordGuess.fromJson(Map<String, dynamic> json) {
+    return WordGuess(
+      id: json['id'] as String,
+      roundId: json['round_id'] as String,
+      playerId: json['player_id'] as String,
+      guessedWord: json['guessed_word'] as String,
+      isCorrect: json['is_correct'] as bool,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
   // Methode zum Konvertieren in Map
   Map<String, dynamic> toMap() {
     return {

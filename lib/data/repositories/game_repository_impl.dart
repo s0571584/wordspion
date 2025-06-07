@@ -36,10 +36,6 @@ class GameRepositoryImpl implements GameRepository {
     );
 
     final gameMap = game.toMap();
-    print("GameRepositoryImpl.createGame: impostorCount in Game object = ${game.impostorCount}");
-    print("GameRepositoryImpl.createGame: saboteurCount in Game object = ${game.saboteurCount}"); // 🆕 NEW: Debug print
-    print("GameRepositoryImpl.createGame: impostor_count in map for DB = ${gameMap['impostor_count']}");
-    print("GameRepositoryImpl.createGame: saboteur_count in map for DB = ${gameMap['saboteur_count']}"); // 🆕 NEW: Debug print
 
     await databaseHelper.insert(
       DatabaseConstants.tableGames,
@@ -78,7 +74,6 @@ class GameRepositoryImpl implements GameRepository {
       return null;
     }
 
-    print("GameRepositoryImpl.getGameById: Raw map from DB for id $id = ${games.first}");
 
     return Game.fromMap(games.first);
   }

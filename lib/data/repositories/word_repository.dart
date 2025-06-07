@@ -14,6 +14,7 @@ abstract class WordRepository {
 
   // Words operations
   Future<List<Word>> getWordsByCategoryId(String categoryId);
+  Future<List<Word>> getWordsByCategory(String categoryName);
   Future<Word> getWordById(String id);
   Future<List<Word>> getRandomWordsByCategories(List<String> categoryIds, int count);
 
@@ -79,6 +80,23 @@ class WordRepositoryImpl implements WordRepository {
     );
 
     return words.map((map) => Word.fromMap(map)).toList();
+  }
+
+  @override
+  Future<List<Word>> getWordsByCategory(String categoryName) async {
+    // First get the category by name
+    final categories = await databaseHelper.query(
+      'categories',
+      where: 'name = ?',
+      whereArgs: [categoryName],
+    );
+
+    if (categories.isEmpty) {
+      throw Exception('Category not found: $categoryName');
+    }
+
+    final categoryId = categories.first['id'] as String;
+    return getWordsByCategoryId(categoryId);
   }
 
   @override
@@ -152,7 +170,6 @@ class WordRepositoryImpl implements WordRepository {
             try {
               return SpyWordInfo.fromMap(relation);
             } catch (e) {
-              print('Warning: Invalid spy word relation for $mainWordId: $e');
               return null;
             }
           })
@@ -164,11 +181,9 @@ class WordRepositoryImpl implements WordRepository {
       final validSpyWords = spyWords.where((spyWord) {
         // Basic validation
         if (spyWord.text.isEmpty) {
-          print('Warning: Empty spy word text for $mainWordId');
           return false;
         }
         if (spyWord.text.toLowerCase() == mainWord.text.toLowerCase()) {
-          print('Warning: Spy word identical to main word: ${spyWord.text}');
           return false;
         }
         return true;
@@ -176,7 +191,6 @@ class WordRepositoryImpl implements WordRepository {
 
       // Fallback strategy if insufficient spy words
       if (validSpyWords.length < 5) {
-        print('Info: Insufficient predefined spy words for "${mainWord.text}" (${validSpyWords.length}/5). Using fallback.');
         final fallbackWords = await _generateFallbackSpyWords(mainWord, 5 - validSpyWords.length);
         validSpyWords.addAll(fallbackWords);
       }
@@ -186,7 +200,6 @@ class WordRepositoryImpl implements WordRepository {
         spyWords: validSpyWords,
       );
     } catch (e) {
-      print('Error: Failed to get spy word set for $mainWordId: $e');
       // Emergency fallback - return generic spy words
       final mainWord = await getWordById(mainWordId);
       final emergencySpyWords = await _generateEmergencySpyWords(mainWord);
@@ -209,7 +222,6 @@ class WordRepositoryImpl implements WordRepository {
 
       return spyRelations.length >= requiredCount;
     } catch (e) {
-      print('Error checking spy word count for $mainWordId: $e');
       return false; // Conservative approach - assume we don't have enough
     }
   }
@@ -312,7 +324,6 @@ class WordRepositoryImpl implements WordRepository {
 
   // Emergency fallback for critical errors
   Future<List<SpyWordInfo>> _generateEmergencySpyWords(Word mainWord) async {
-    print('Warning: Using emergency spy words for "${mainWord.text}"');
 
     // Basic emergency spy words that should work for any context
     final emergencyWords = [

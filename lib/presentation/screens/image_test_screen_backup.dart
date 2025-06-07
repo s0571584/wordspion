@@ -31,7 +31,6 @@ class ImageTestScreen extends StatelessWidget {
                   height: 120,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
-                    print('❌ Test: Image loading failed: $error');
                     return Container(
                       width: 120,
                       height: 120,
@@ -45,7 +44,6 @@ class ImageTestScreen extends StatelessWidget {
                   },
                   frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                     if (frame != null) {
-                      print('✅ Test: Image loaded successfully!');
                     }
                     return child;
                   },

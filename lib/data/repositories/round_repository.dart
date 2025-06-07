@@ -92,7 +92,6 @@ class RoundRepositoryImpl implements RoundRepository {
       'created_at': now.millisecondsSinceEpoch,
     };
     
-    print('Creating round with map: $roundMap'); // Debug logging
 
     await databaseHelper.insert(
       DatabaseConstants.tableRounds,
@@ -175,7 +174,6 @@ class RoundRepositoryImpl implements RoundRepository {
     required int impostorCount,
     int saboteurCount = 0, // 🆕 NEW: Add saboteur count parameter
   }) async {
-    print("RoundRepositoryImpl.assignRoles: Assigning $impostorCount impostors and $saboteurCount saboteurs among ${players.length} players");
     
     // 🆕 NEW: Validate role counts
     final totalSpecialRoles = impostorCount + saboteurCount;
@@ -183,7 +181,6 @@ class RoundRepositoryImpl implements RoundRepository {
     final maxSpecialRoles = players.length - minCivilians;
     
     if (totalSpecialRoles > maxSpecialRoles) {
-      print("RoundRepositoryImpl.assignRoles: ERROR - Too many special roles requested. Total: $totalSpecialRoles, Max allowed: $maxSpecialRoles");
       throw ArgumentError('Cannot assign $totalSpecialRoles special roles with only ${players.length} players. Need at least $minCivilians civilian(s).');
     }
     
@@ -192,16 +189,13 @@ class RoundRepositoryImpl implements RoundRepository {
     
     // 1. Assign saboteurs first
     final saboteurs = shuffledPlayers.take(saboteurCount).toList();
-    print("RoundRepositoryImpl.assignRoles: Selected ${saboteurs.length} saboteurs: ${saboteurs.map((p) => p.name).join(', ')}");
     
     // 2. Assign impostors from remaining players
     final remainingAfterSaboteurs = shuffledPlayers.skip(saboteurCount).toList();
     final impostors = remainingAfterSaboteurs.take(impostorCount).toList();
-    print("RoundRepositoryImpl.assignRoles: Selected ${impostors.length} impostors: ${impostors.map((p) => p.name).join(', ')}");
     
     // 3. Remaining players are civilians
     final civilians = shuffledPlayers.skip(saboteurCount + impostorCount).toList();
-    print("RoundRepositoryImpl.assignRoles: Remaining ${civilians.length} civilians: ${civilians.map((p) => p.name).join(', ')}");
 
     final playerRoles = <PlayerRole>[];
 

@@ -1,7 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter pub:*)"
+      "Bash(flutter pub:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(chmod:*)",
+      "Bash(./build.sh:*)",
+      "Bash(flutter packages pub run build_runner build:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(/mnt/c/dev/flutter/bin/flutter pub get)",
+      "Bash(grep:*)",
+      "Bash(dart analyze:*)",
+      "Bash(flutter:*)",
+      "Bash(/mnt/c/dev/flutter/bin/flutter analyze)",
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(dos2unix:*)",
+      "Bash(sed:*)",
+      "Bash(/mnt/c/dev/flutter/bin/flutter doctor -v)",
+      "Bash(echo $SHELL)"
     ],
     "deny": []
   }

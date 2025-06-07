@@ -159,7 +159,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
       // Check if current game has selected categories (was created via category selection)
       if (currentGame != null && currentGame.selectedCategoryIds != null && currentGame.selectedCategoryIds!.isNotEmpty) {
         // 🎯 FIX: Use existing game with categories instead of creating new one
-        print("PlayerBloc: Using existing game with categories: ${currentGame.selectedCategoryIds}");
         game = currentGame;
       } else {
         // If previous game exists without categories, mark it as finished
@@ -175,12 +174,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
         final timerDuration = prefs.getInt('game_timer_duration') ?? 60;
         final impostorsKnowEachOther = prefs.getBool('game_impostors_know_each_other') ?? false;
 
-        print("PlayerBloc: Loaded settings from SharedPreferences:");
-        print("- impostorCount = $impostorCount");
-        print("- saboteurCount = $saboteurCount"); // 🆕 NEW: Debug print
-        print("- roundCount = $roundCount");
-        print("- timerDuration = $timerDuration");
-        print("- impostorsKnowEachOther = $impostorsKnowEachOther");
 
         // Create a new game with settings from SharedPreferences (only if no game with categories exists)
         game = await gameRepository.createGame(
@@ -192,12 +185,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
           impostorsKnowEachOther: impostorsKnowEachOther,
         );
 
-        print("PlayerBloc: Created NEW game with settings from SharedPreferences");
-        print("- playerCount = ${event.players.length}");
-        print("- impostorCount = $impostorCount");
-        print("- saboteurCount = $saboteurCount"); // 🆕 NEW: Debug print
-        print("- Database game.impostorCount = ${game.impostorCount}"); // Verify it's set correctly
-        print("- Database game.saboteurCount = ${game.saboteurCount}"); // 🆕 NEW: Verify saboteur count
       }
 
       // Register each player with the game ID

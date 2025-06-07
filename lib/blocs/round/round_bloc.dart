@@ -53,8 +53,7 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         return;
       }
 
-      print("RoundBloc: Game from DB has impostorCount = ${game.impostorCount}");
-
+  
       // Get all registered players for the game
       final players = await gameRepository.getPlayersByGameId(game.id);
       if (players.isEmpty) {
@@ -81,10 +80,8 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         if (game.selectedCategoryIds != null && game.selectedCategoryIds!.isNotEmpty) {
           // Use user-selected categories
           categoryIds = game.selectedCategoryIds!;
-          print("RoundBloc: Using user-selected categories: $categoryIds");
         } else {
           // TEMPORARY FIX: For old games without selected categories, force Tiere category
-          print("🔧 RoundBloc: Game has no selected categories (old game). Checking for Tiere category...");
           final allCategories = await wordRepository.getAllCategories();
           Category.Category? tiereCategory;
 
@@ -97,7 +94,6 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
 
           if (tiereCategory != null) {
             categoryIds = [tiereCategory.id];
-            print("🎯 RoundBloc: FORCING Tiere category for old game: ${tiereCategory.id}");
           } else {
             // Final fallback to default categories
             final categories = await wordRepository.getDefaultCategories();
@@ -106,7 +102,6 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
               return;
             }
             categoryIds = categories.map((c) => c.id).toList();
-            print("RoundBloc: Using default categories as final fallback: $categoryIds");
           }
         }
 
@@ -114,19 +109,14 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         mainWord = await wordRepository.selectMainWord(categoryIds, 0);
 
         // DEBUG: Verify the selected word is from the right category
-        print("🔍 DEBUG: Selected main word '${mainWord.text}' from category: ${mainWord.categoryId}");
 
         // Get and print the actual category name for verification
         try {
           final selectedWordCategory = await wordRepository.getCategoryById(mainWord.categoryId);
-          print("🔍 DEBUG: Word category name: '${selectedWordCategory.name}'");
           if (selectedWordCategory.name.toLowerCase() != 'tiere') {
-            print("🚨 WARNING: Expected 'Tiere' but got '${selectedWordCategory.name}'!");
           } else {
-            print("✅ SUCCESS: Word is correctly from 'Tiere' category!");
           }
         } catch (e) {
-          print("❌ Error getting category name: $e");
         }
 
         try {
@@ -134,12 +124,9 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
 
           // Validate the spy word set
           if (spyWordSet.spyWords.isEmpty) {
-            print('Warning: No spy words available for "${mainWord.text}". This may affect gameplay.');
           } else {
-            print('Info: Loaded ${spyWordSet.spyWords.length} spy words for "${mainWord.text}"');
           }
         } catch (e) {
-          print('Error: Failed to load spy words for "${mainWord.text}": $e');
           emit(RoundError(message: 'Fehler beim Laden der Spy-Wörter: $e'));
           return;
         }
@@ -168,7 +155,6 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
           try {
             spyWordSet = await wordRepository.getSpyWordSet(round.mainWordId);
           } catch (e) {
-            print('Error: Failed to load spy words during retry: $e');
             emit(RoundError(message: 'Fehler beim Laden der Spy-Wörter: $e'));
             return;
           }
@@ -180,7 +166,6 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
 
       // DEBUG PRINT ADDED HERE
       debugPrint("RoundBloc: _onStartRound: impostorCount being passed to roundRepository.assignRoles = ${event.impostorCount}");
-      print("RoundBloc: CRITICAL - Using explicitly provided impostorCount=${event.impostorCount} from event, not from game object");
 
       final roles = existingRoles.isNotEmpty
           ? existingRoles
@@ -204,13 +189,11 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
 
       // Validate spy word availability
       if (spyPlayers.isNotEmpty && spyWordSet.spyWords.isEmpty) {
-        print('Error: No spy words available but ${spyPlayers.length} spies assigned');
         emit(const RoundError(message: 'Keine Spy-Wörter verfügbar für die zugewiesenen Spione'));
         return;
       }
 
       if (spyPlayers.length > spyWordSet.spyWords.length) {
-        print('Warning: ${spyPlayers.length} spies but only ${spyWordSet.spyWords.length} spy words. Some spies will get duplicate words.');
       }
 
       // Assign different spy words to different spies
@@ -222,14 +205,12 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
           final spyWordInfo = spyWordSet.spyWords[i];
           playerWords[spyPlayerId] = spyWordInfo.text;
           spyWordAssignments[spyPlayerId] = spyWordInfo;
-          print('Info: Assigned spy "${spyWordInfo.text}" (${spyWordInfo.relationshipType}) to spy ${i + 1}');
         } else {
           // If more spies than words, cycle through with priority-based selection
           final wordIndex = i % spyWordSet.spyWords.length;
           final spyWordInfo = spyWordSet.spyWords[wordIndex];
           playerWords[spyPlayerId] = spyWordInfo.text;
           spyWordAssignments[spyPlayerId] = spyWordInfo;
-          print('Info: Assigned spy "${spyWordInfo.text}" (duplicate) to spy ${i + 1}');
         }
       }
 
@@ -554,11 +535,6 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
         // If all team members got points, it means they correctly identified all spies
         actualImpostorsWon = !(teamMembersWithPoints == totalTeamMembers && teamMembersWithPoints > 0);
 
-        print('=== RoundBloc: Winner Calculation ===');
-        print('Original impostorsWon from event: ${event.impostorsWon}');
-        print('Team members with points: $teamMembersWithPoints / $totalTeamMembers');
-        print('Calculated actualImpostorsWon: $actualImpostorsWon');
-        print('Score results: ${scoreResults.map((r) => "${r.playerName}: ${r.scoreChange} (${r.reason})").join(", ")}');
       }
 
       // Update player scores in the database
@@ -580,7 +556,6 @@ class RoundBloc extends Bloc<RoundEvent, RoundState> {
       final completedRounds = await roundRepository.getRoundsByGameId(round.gameId);
       final actualRoundNumber = completedRounds.length; // This round we just completed
       
-      print('🔢 ROUND NUMBER FIX: DB round.roundNumber = ${round.roundNumber}, calculated actualRoundNumber = $actualRoundNumber');
       
       emit(RoundComplete(
         roundId: event.roundId,

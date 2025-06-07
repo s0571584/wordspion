@@ -54,13 +54,8 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
   Widget build(BuildContext context) {
     return BlocConsumer<GameBloc, GameState>(
       listener: (context, state) {
-        print('=== RoundResultsScreen: State change ===');
-        print('New state: ${state.runtimeType}');
 
         if (state is GameCompleted) {
-          print('GameCompleted received - navigating to final results');
-          print('Players: ${state.players?.length ?? 0}');
-          print('Winner names: ${state.winnerNames}');
 
           // Navigate to final results with the completion data
           context.router.replace(
@@ -71,7 +66,6 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
             ),
           );
         } else if (state is GameError) {
-          print('GameError received: ${state.message}');
           // Show error message if game completion fails
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -80,7 +74,6 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
             ),
           );
         } else if (state is GameLoading) {
-          print('GameLoading state received');
         }
       },
       builder: (context, state) {
@@ -324,8 +317,6 @@ class RoundResultsScreen extends StatelessWidget implements AutoRouteWrapper {
             ? null
             : () {
                 if (isLastRound) {
-                  print('=== RoundResultsScreen: Completing game ===');
-                  print('Dispatching CompleteGame event for gameId: $gameId');
                   // Game is complete, dispatch event and wait for listener to navigate
                   context.read<GameBloc>().add(CompleteGame(gameId: gameId));
                 } else {

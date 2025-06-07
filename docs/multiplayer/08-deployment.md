@@ -654,7 +654,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT }}
-          packageName: com.example.wortspion
+          packageName: com.serhot.wortspion
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
           track: production
   

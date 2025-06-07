@@ -1,4 +1,4 @@
-package com.example.wortspion
+package com.serhot.wortspion
 
 import io.flutter.embedding.android.FlutterActivity
 

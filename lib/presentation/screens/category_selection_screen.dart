@@ -91,14 +91,12 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   setState(() {
     _selectedCategoryIds = savedCategories.toSet();
   });
-  print('Loaded saved categories: $savedCategories');
   } else {
   // Use default categories if no saved selection
     final defaultCategories = await _wordRepository.getDefaultCategories();
       setState(() {
       _selectedCategoryIds = defaultCategories.map((c) => c.id).toSet();
     });
-    print('Using default categories: ${_selectedCategoryIds.toList()}');
   }
   
   // Load favorites (or use defaults if none set)
@@ -106,7 +104,6 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         setState(() {
           _favoriteCategoryIds = favoriteCategories.toSet();
         });
-        print('Loaded favorite categories: $favoriteCategories');
       } else {
         // If no favorites set, use default categories as initial favorites
         final defaultCategories = await _wordRepository.getDefaultCategories();
@@ -116,10 +113,8 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         });
         // Save these as initial favorites
         await prefs.setStringList(_favoriteCategoriesKey, defaultIds.toList());
-        print('Set initial favorites from defaults: ${defaultIds.toList()}');
       }
     } catch (e) {
-      print('Error loading saved categories: $e');
       // Fallback to default categories
       final defaultCategories = await _wordRepository.getDefaultCategories();
       setState(() {
@@ -133,9 +128,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_selectedCategoriesKey, _selectedCategoryIds.toList());
-      print('Saved categories: ${_selectedCategoryIds.toList()}');
     } catch (e) {
-      print('Error saving categories: $e');
     }
   }
 

@@ -306,7 +306,6 @@ class DatabaseHelper {
       END
     ''');
 
-    print('Database upgraded to v4: Added saboteur support');
   }
 
   // Helper method to add advanced spy words system for v5
@@ -337,7 +336,6 @@ class DatabaseHelper {
     await db.delete(DatabaseConstants.tableSpyWordRelations);
     await _seedSpyWords(db);
 
-    print('Database upgraded to v5: Added advanced spy words system');
   }
 
   // Helper method to update spy words for v6
@@ -348,7 +346,6 @@ class DatabaseHelper {
     // Re-seed with balanced spy words from WordDataSource
     await _seedSpyWords(db);
 
-    print('Database upgraded to v6: Updated to balanced spy words');
   }
 
   // Helper method to expand word categories for v7
@@ -361,7 +358,6 @@ class DatabaseHelper {
     // Re-seed with complete organized data from WordDataSource
     await _seedData(db);
 
-    print('Database upgraded to v7: Expanded word categories to 20 words each');
   }
 
   // Helper method to add selected categories support for v8
@@ -369,7 +365,6 @@ class DatabaseHelper {
     // Add selected_category_ids column to games table
     await db.execute('ALTER TABLE ${DatabaseConstants.tableGames} ADD COLUMN selected_category_ids TEXT');
 
-    print('Database upgraded to v8: Added selected categories support');
   }
 
   // Helper method to create player group tables, used in onCreate and onUpgrade
@@ -401,15 +396,11 @@ class DatabaseHelper {
     final validation = WordDataSource.validateData();
     
     if (validation['is_valid']) {
-      print('✅ Word data validation passed!');
     } else {
-      print('❌ Word data validation failed:');
       for (var issue in validation['issues']) {
-        print('  - $issue');
       }
     }
     
-    print('📊 Statistics: ${validation['statistics']}');
   }
 
   // Seeding der Datenbank mit Initial-Daten (NEW CLEAN VERSION)
@@ -439,10 +430,6 @@ class DatabaseHelper {
 
     await batch.commit(noResult: true);
     
-    print('✅ Database seeded successfully!');
-    print('📊 Categories: ${categories.length}');
-    print('📝 Words: ${words.length}');
-    print('🕵️ Spy Words: ${spyWords.length}');
   }
 
   // Helper method to seed only spy words (used in upgrades)
@@ -455,7 +442,6 @@ class DatabaseHelper {
     }
     await batch.commit(noResult: true);
 
-    print('✅ Spy words seeded: ${spyWords.length}');
   }
 
   // =========================================================================

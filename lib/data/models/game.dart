@@ -44,12 +44,6 @@ class Game extends Equatable {
   
   // Factory-Methode zum Erstellen aus der Datenbank
   factory Game.fromMap(Map<String, dynamic> map) {
-    print("=== Game.fromMap ====");
-    print("Converting map to Game object:");
-    print("map = $map");
-    print("impostor_count in map = ${map['impostor_count']}");
-    print("saboteur_count in map = ${map['saboteur_count']}"); // 🆕 NEW: Debug print
-    print("🔍 DEBUG: selected_category_ids in map = ${map['selected_category_ids']}"); // DEBUG: Check selected categories
     
     final game = Game(
       id: map['id'] as String,
@@ -67,10 +61,6 @@ class Game extends Equatable {
           : null, // NEW: Parse comma-separated string back to list, handle empty strings
     );
     
-    print("Created game object: $game");
-    print("impostorCount in Game object = ${game.impostorCount}");
-    print("saboteurCount in Game object = ${game.saboteurCount}"); // 🆕 NEW: Debug print
-    print("🔍 DEBUG: selectedCategoryIds in Game object = ${game.selectedCategoryIds}"); // DEBUG: Check parsed categories
     
     return game;
   }
@@ -91,8 +81,6 @@ class Game extends Equatable {
       'selected_category_ids': selectedCategoryIds?.join(','), // NEW: Store as comma-separated string
     };
     
-    print("🔍 DEBUG: Game.toMap() - selectedCategoryIds = $selectedCategoryIds");
-    print("🔍 DEBUG: Game.toMap() - selected_category_ids in map = ${map['selected_category_ids']}");
     
     return map;
   }

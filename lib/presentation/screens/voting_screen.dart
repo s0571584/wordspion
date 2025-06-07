@@ -64,9 +64,7 @@ class _VotingScreenState extends State<VotingScreen> {
         listeners: [
           BlocListener<VotingBloc, VotingState>(
             listener: (context, votingState) {
-              print("[VotingScreen] VotingBloc listener received state: ${votingState.runtimeType}");
               if (votingState is VotingTallied) {
-                print("[VotingScreen] VotingTallied received: mostVotedPlayer: ${votingState.mostVotedPlayer?.name}");
 
                 final roundBlocCurrentState = widget.roundBloc.state;
                 bool finalImpostorsWon = true; // Default: spies win
@@ -87,8 +85,6 @@ class _VotingScreenState extends State<VotingScreen> {
                       .map((entry) => entry.key)
                       .toList();
                   
-                  print("[VotingScreen] Spy IDs: $spyIds");
-                  print("[VotingScreen] Accused player IDs: $accusedPlayerIds");
                   
                   // Team wins if ALL spies are accused AND ONLY spies are accused
                   final bool allSpiesAccused = spyIds.every((spyId) => accusedPlayerIds.contains(spyId));
@@ -96,14 +92,9 @@ class _VotingScreenState extends State<VotingScreen> {
                   
                   finalImpostorsWon = !(allSpiesAccused && onlySpiesAccused);
                   
-                  print("[VotingScreen] All spies accused: $allSpiesAccused");
-                  print("[VotingScreen] Only spies accused: $onlySpiesAccused");
-                  print("[VotingScreen] Final impostors won: $finalImpostorsWon");
                 } else {
-                  print("[VotingScreen] RoundBloc not in RoundStarted state, defaulting to spies win");
                 }
 
-                print("[VotingScreen] Dispatching CompleteRound to RoundBloc. ImpostorsWon: $finalImpostorsWon");
                 widget.roundBloc.add(CompleteRound(
                   roundId: votingState.roundId,
                   impostorsWon: finalImpostorsWon,
@@ -112,21 +103,17 @@ class _VotingScreenState extends State<VotingScreen> {
                   wordGuesserId: _wordGuesserId,
                 ));
               } else if (votingState is VotingError) {
-                print("[VotingScreen] VotingError: ${votingState.message}");
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Voting Error: ${votingState.message}')),
                 );
               } else if (votingState is VotingLoaded) {
-                print("[VotingScreen] VotingLoaded (initial). UI should build. Players: ${_players.length}");
               }
             },
           ),
           BlocListener<RoundBloc, RoundState>(
             bloc: widget.roundBloc,
             listener: (context, roundState) {
-              print("[VotingScreen] RoundBloc listener received state: ${roundState.runtimeType}");
               if (roundState is RoundComplete) {
-                print("[VotingScreen] RoundComplete: Navigating to RoundResults screen...");
 
                 // Store round results in state manager
                 RoundResultsState().setRoundResults(
@@ -154,7 +141,6 @@ class _VotingScreenState extends State<VotingScreen> {
                   ),
                 );
               } else if (roundState is RoundError) {
-                print("[VotingScreen] RoundError: ${roundState.message}");
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Round Error: ${roundState.message}')),
                 );
@@ -169,30 +155,22 @@ class _VotingScreenState extends State<VotingScreen> {
           ),
           body: BlocBuilder<PlayerBloc, PlayerState>(
             builder: (context, playerState) {
-              print("[VotingScreen] PlayerBloc state: ${playerState.runtimeType}");
               if (playerState is PlayersLoaded || playerState is PlayersRegistered) {
                 _players = playerState is PlayersLoaded ? playerState.players : (playerState as PlayersRegistered).players;
-                print("[VotingScreen] Players loaded: ${_players.length} players.");
                 _players.asMap().forEach((index, player) {
-                  print("[VotingScreen] Player $index: ID=${player.id}, Name=${player.name}");
                 });
 
                 final currentVoter = _currentVoterIndex < _players.length ? _players[_currentVoterIndex] : null;
-                print("[VotingScreen] Current voter index: $_currentVoterIndex, Current voter: ${currentVoter?.name}");
 
                 if (currentVoter == null) {
-                  print("[VotingScreen] Current voter is null, building VotingComplete.");
                   return _buildVotingComplete(context);
                 }
-                print("[VotingScreen] Building VotingSection for ${currentVoter.name}.");
                 return _buildVotingSection(context, currentVoter);
               }
 
               if (playerState is PlayerError) {
-                print("[VotingScreen] PlayerBloc error: ${playerState.message}");
                 return Center(child: Text('Fehler beim Laden der Spieler: ${playerState.message}'));
               }
-              print("[VotingScreen] PlayerBloc in initial or loading state.");
               return const Center(child: CircularProgressIndicator());
             },
           ),

@@ -45,11 +45,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
       child: BlocListener<GameBloc, GameState>(
         listener: (context, state) {
           if (state is GameCreated) {
-            print('New game created for "Play Again" from Results: ${state.game.id}');
             // Navigate to role reveal screen with the new game
             context.router.replace(RoleRevealRoute(gameId: state.game.id));
           } else if (state is GameError) {
-            print('Error creating new game: ${state.message}');
             setState(() {
               _isPlayingAgain = false;
             });
@@ -73,7 +71,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
     });
 
     try {
-      print('=== Play Again: Starting new game from Results ===');
 
       // Get the current game configuration from the database
       final gameRepository = sl<GameRepository>();
@@ -83,12 +80,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
         throw Exception('Original game not found');
       }
 
-      print('Original game config: ${currentGame.playerCount} players, ${currentGame.impostorCount} impostors');
 
       // Extract player names from playerRoles
       final playerNames = widget.playerRoles.map((role) => role.playerName).toList();
 
-      print('Players for new game: ${playerNames.join(", ")}');
 
       // Create a new game with the same configuration but using CreateGameFromGroup
       final gameBloc = context.read<GameBloc>();
@@ -105,9 +100,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
       // Create the new game from the group of players
       gameBloc.add(CreateGameFromGroup(playerNames: playerNames));
 
-      print('Dispatched CreateGameFromGroup event');
     } catch (e) {
-      print('Error in _playAgain: $e');
       setState(() {
         _isPlayingAgain = false;
       });

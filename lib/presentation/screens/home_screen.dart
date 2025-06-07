@@ -47,19 +47,15 @@ class _HomeScreenState extends State<HomeScreen> {
       child: BlocListener<GameBloc, GameState>(
         listener: (context, gameState) async {
           if (gameState is GameCreated) {
-            print('GameCreated received, checking if players are already registered...');
 
             try {
               final gameRepository = sl<GameRepository>();
               final players = await gameRepository.getPlayersByGameId(gameState.game.id);
 
-              print('Found ${players.length} existing players in game ${gameState.game.id}');
 
               if (players.isNotEmpty) {
-                print('Players already exist, skipping player registration and going to role reveal');
                 context.router.push(RoleRevealRoute(gameId: gameState.game.id));
               } else {
-                print('No players found, navigating to player registration');
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (navContext) => MultiBlocProvider(
@@ -75,7 +71,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
             } catch (e) {
-              print('Error checking players: $e');
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (navContext) => MultiBlocProvider(
@@ -208,13 +203,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
         const SizedBox(height: 32),
 
-        // Main CTA Button
-        _buildMainButton(context),
+        // Game Mode Selection
+        _buildGameModeSelection(context),
       ],
     );
   }
 
-  Widget _buildMainButton(BuildContext context) {
+  Widget _buildGameModeSelection(BuildContext context) {
     return BlocBuilder<GameBloc, GameState>(
       builder: (context, state) {
         if (state is GameLoading) {
@@ -224,73 +219,163 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        return Container(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)], // indigo-600 to purple-600
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4F46E5).withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+        return Column(
+          children: [
+            // Local Game Button
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)], // indigo-600 to purple-600
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4F46E5).withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () {
-                final gameBloc = BlocProvider.of<GameBloc>(context);
-                final currentState = gameBloc.state;
-
-                if (currentState is GameCreated) {
-                  gameBloc.add(DeleteGame(gameId: currentState.game.id));
-                } else if (currentState is GameInProgress) {
-                  gameBloc.add(DeleteGame(gameId: currentState.game.id));
-                }
-
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => MultiBlocProvider(
-                      providers: [
-                        BlocProvider.value(value: gameBloc),
-                        BlocProvider(create: (context) => sl<SettingsBloc>()),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => _startLocalGame(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.people,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Lokales Spiel',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              'Ein Gerät für alle Spieler',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
-                      child: const GameSetupScreen(),
                     ),
                   ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.play_arrow,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    SizedBox(width: 12),
-                    Text(
-                      'Neues Spiel starten',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
-          ),
+            
+            const SizedBox(height: 16),
+            
+            // Online Game Button
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF4F46E5),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => _startOnlineGame(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.wifi,
+                          color: Color(0xFF4F46E5),
+                          size: 24,
+                        ),
+                        SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Online Spiel',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF4F46E5),
+                              ),
+                            ),
+                            Text(
+                              'Mit Freunden online spielen',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
+  }
+
+  void _startLocalGame(BuildContext context) {
+    final gameBloc = BlocProvider.of<GameBloc>(context);
+    final currentState = gameBloc.state;
+
+    if (currentState is GameCreated) {
+      gameBloc.add(DeleteGame(gameId: currentState.game.id));
+    } else if (currentState is GameInProgress) {
+      gameBloc.add(DeleteGame(gameId: currentState.game.id));
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: gameBloc),
+            BlocProvider(create: (context) => sl<SettingsBloc>()),
+          ],
+          child: const GameSetupScreen(),
+        ),
+      ),
+    );
+  }
+
+  void _startOnlineGame(BuildContext context) {
+    // Check if user is authenticated
+    context.router.push(const MultiplayerGameModeRoute());
   }
 
   Widget _buildPlayerGroupsCard(BuildContext context) {

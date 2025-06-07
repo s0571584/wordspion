@@ -82,14 +82,8 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> with SingleTickerPr
         debugPrint("Game details fetched for ${game.id}: Timer ${game.timerDuration}");
 
         // DEBUG PRINT ADDED HERE
-        print("=== RoleRevealScreen: _initializeGame ====");
-        print("Game retrieved from DB: ${game.toString()}");
-        print("impostorCount in the game object = ${_currentGame!.impostorCount}, playerCount = ${_currentGame!.playerCount}");
-        print("saboteurCount in the game object = ${_currentGame!.saboteurCount}"); // 🆕 NEW: Debug print saboteur count
 
         // Use the game's impostor and saboteur counts directly
-        print(
-            "RoleRevealScreen: Using game's impostorCount=${_currentGame!.impostorCount}, saboteurCount=${_currentGame!.saboteurCount} from database");
 
         // Start the round
         final nextRoundNumber = (_currentGame?.currentRound ?? 0) + 1;

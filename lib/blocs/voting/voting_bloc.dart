@@ -65,9 +65,7 @@ class VotingBloc extends Bloc<VotingEvent, VotingState> {
     SubmitVotes event,
     Emitter<VotingState> emit,
   ) async {
-    print("[VotingBloc] _onSubmitVotes called. Number of votes: ${event.votes.length}");
     event.votes.asMap().forEach((index, vote) {
-      print("[VotingBloc] Vote $index: voterId=${vote.voterId}, targetId=${vote.targetId}, roundId=${vote.roundId}");
     });
 
     emit(VotingLoading());
@@ -75,13 +73,11 @@ class VotingBloc extends Bloc<VotingEvent, VotingState> {
       final votes = event.votes;
       final players = event.players;
       final Map<String, Player> playerMap = {for (var player in players) player.id: player};
-      print("[VotingBloc] PlayerMap contents: ${playerMap.entries.map((e) => 'ID=${e.key}, Name=${e.value.name}').toList()}");
 
       final Map<String, int> voteCounts = {};
       for (final vote in votes) {
         voteCounts[vote.targetId] = (voteCounts[vote.targetId] ?? 0) + 1;
       }
-      print("[VotingBloc] Vote counts: $voteCounts");
 
       final results = voteCounts.entries.map((entry) {
         final Player? votedPlayer = playerMap[entry.key];
@@ -92,7 +88,6 @@ class VotingBloc extends Bloc<VotingEvent, VotingState> {
         );
       }).toList();
       results.sort((a, b) => b.voteCount.compareTo(a.voteCount));
-      print("[VotingBloc] Sorted results: ${results.map((r) => '${r.playerName}:${r.voteCount}').toList()}");
 
       Player? mostVotedPlayerObject;
       bool impostorsWonCalculation = false; // Default winner logic
@@ -102,8 +97,6 @@ class VotingBloc extends Bloc<VotingEvent, VotingState> {
         mostVotedPlayerObject = playerMap[firstResultPlayerId];
 
         if (mostVotedPlayerObject != null) {
-          print(
-              "[VotingBloc] Most voted player determined: ${mostVotedPlayerObject.name} (ID: ${mostVotedPlayerObject.id}) with ${results.first.voteCount} votes.");
           // Simple win condition: if most voted is an impostor, civilians win (impostorsWon=false)
           // This needs PlayerRoleType which isn't available here directly without more state/repo calls.
           // For now, let's assume a placeholder or pass this logic to RoundBloc via CompleteRound event.
@@ -111,10 +104,8 @@ class VotingBloc extends Bloc<VotingEvent, VotingState> {
           // So, VotingBloc will just pass along the determined player.
           // The actual determination of `impostorsWon` will be in VotingScreen listener for now.
         } else {
-          print("[VotingBloc] Most voted player ID $firstResultPlayerId not found in playerMap. This is unexpected.");
         }
       } else {
-        print("[VotingBloc] No results, so mostVotedPlayerObject is null.");
         // If no one is voted, perhaps impostors win by default if not caught?
         // Or game continues? For now, let's say this means impostors were not caught via voting.
       }
@@ -137,7 +128,6 @@ class VotingBloc extends Bloc<VotingEvent, VotingState> {
       }
       // If currentRoundId is still empty, this is an issue.
 
-      print("[VotingBloc] Emitting VotingTallied with mostVotedPlayer: ${mostVotedPlayerObject?.name}");
       emit(VotingTallied(
         votingResults: results,
         mostVotedPlayer: mostVotedPlayerObject,
@@ -146,7 +136,6 @@ class VotingBloc extends Bloc<VotingEvent, VotingState> {
         wordGuessed: false, // Placeholder - VotingScreen will set this
       ));
     } catch (e) {
-      print("[VotingBloc] Error in _onSubmitVotes: $e");
       emit(VotingError(message: 'Failed to submit votes: $e'));
     }
   }

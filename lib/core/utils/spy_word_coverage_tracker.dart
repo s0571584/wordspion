@@ -10,7 +10,6 @@ class SpyWordCoverageTracker {
 
   /// Analyzes spy word coverage across all main words
   Future<CoverageReport> analyzeCoverage() async {
-    print('🔍 Analyzing spy word coverage...');
     
     // Get all categories
     final categories = await wordRepository.getAllCategories();
@@ -25,7 +24,6 @@ class SpyWordCoverageTracker {
     final List<ValidationIssue> validationIssues = [];
     
     for (final category in categories) {
-      print('  📂 Checking category: ${category.name}');
       
       final categoryWords = await wordRepository.getWordsByCategoryId(category.id);
       int categoryCovered = 0;
@@ -92,8 +90,6 @@ class SpyWordCoverageTracker {
     
     final coveragePercentage = totalWords > 0 ? (coveredWords / totalWords * 100) : 0.0;
     
-    print('✅ Coverage analysis complete!');
-    print('   📊 Total: $coveredWords/$totalWords words (${coveragePercentage.toStringAsFixed(1)}%)');
     
     return CoverageReport(
       totalWords: totalWords,
@@ -182,8 +178,6 @@ class SpyWordCoverageTracker {
   /// Quick coverage statistics for logging
   Future<void> logCoverageStats() async {
     final coverage = await analyzeCoverage();
-    print('🎯 Spy Word Coverage: ${coverage.coveredWords}/${coverage.totalWords} words (${coverage.coveragePercentage.toStringAsFixed(1)}%)');
-    print('🏆 Quality: ${coverage.excellentQuality} excellent, ${coverage.goodQuality} good, ${coverage.poorQuality} poor');
   }
 }
 

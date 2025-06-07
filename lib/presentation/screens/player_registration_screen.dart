@@ -10,10 +10,6 @@ import 'package:wortspion/core/router/app_router.dart';
 import 'package:wortspion/data/models/player.dart';
 import 'package:wortspion/data/models/game.dart';
 import 'package:wortspion/di/injection_container.dart';
-import 'package:wortspion/presentation/widgets/app_button.dart';
-import 'package:wortspion/blocs/settings/settings_bloc.dart';
-import 'package:wortspion/presentation/screens/game_setup_screen.dart';
-import 'package:wortspion/presentation/screens/role_reveal_screen.dart';
 
 @RoutePage()
 class PlayerRegistrationScreen extends StatefulWidget {
@@ -144,24 +140,8 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
                 // Read GameBloc BEFORE navigation, while context is still valid
                 final gameBloc = context.read<GameBloc>();
 
-                // Create a clean navigation stack to avoid duplicated routes
-                // Ensure RoleRevealScreen replaces PlayerRegistrationScreen on top of HomeScreen
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => MultiBlocProvider(
-                      providers: [
-                        // Pass the pre-fetched gameBloc instance
-                        BlocProvider.value(value: gameBloc),
-                        // PlayerBloc might be better recreated or re-scoped for RoleRevealScreen if needed,
-                        // or ensure this instance is what RoleRevealScreen expects.
-                        // For now, let's assume context.read<PlayerBloc>() is fine if PlayerBloc is still needed.
-                        // BlocProvider.value(value: _playerBloc), // _playerBloc might be stale
-                      ],
-                      child: RoleRevealScreen(gameId: gameId),
-                    ),
-                  ),
-                  ModalRoute.withName(HomeRoute.name), // Go back until HomeRoute is found
-                );
+                // Navigate to role reveal screen
+                context.router.navigate(RoleRevealRoute(gameId: gameId));
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Fehler: Keine Spieler für das Spiel registriert oder gameId fehlt.')),
@@ -181,22 +161,8 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
                   icon: const Icon(Icons.settings),
                   tooltip: 'Spieleinstellungen ändern',
                   onPressed: () async {
-                    // Navigate to game setup screen, preserving GameBloc state
-                    final result = await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => MultiBlocProvider(
-                          providers: [
-                            BlocProvider.value(
-                              value: context.read<GameBloc>(),
-                            ),
-                            BlocProvider(
-                              create: (_) => sl<SettingsBloc>(),
-                            ),
-                          ],
-                          child: const GameSetupScreen(isSettingsOnly: true),
-                        ),
-                      ),
-                    );
+                    // Navigate to game setup screen using AutoRoute
+                    await context.router.push(GameSetupRoute(isSettingsOnly: true));
 
                     // When returning, check if game was updated
                     if (mounted) {
@@ -339,7 +305,6 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
       }
 
       if (players.length >= _minPlayers) {
-        print('PlayerRegistrationScreen: Registering ${players.length} players');
         _playerBloc.add(RegisterPlayers(players));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

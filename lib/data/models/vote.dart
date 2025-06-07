@@ -52,6 +52,17 @@ class Vote extends Equatable {
     );
   }
 
+  // Create a vote from JSON (Supabase data)
+  factory Vote.fromJson(Map<String, dynamic> json) {
+    return Vote(
+      id: json['id'] as String,
+      voterId: json['voter_id'] as String,
+      targetId: json['target_id'] as String,
+      roundId: json['round_id'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
   @override
   List<Object> get props => [id, voterId, targetId, roundId, createdAt];
 

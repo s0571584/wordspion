@@ -31,6 +31,16 @@ class Word extends Equatable {
     );
   }
 
+  // Factory method for creating from JSON (Supabase data)
+  factory Word.fromJson(Map<String, dynamic> json) {
+    return Word(
+      id: json['id'] as String,
+      categoryId: json['category_id'] as String,
+      text: json['text'] as String,
+      difficulty: json['difficulty'] as int,
+    );
+  }
+
   // Methode zum Konvertieren in Map
   Map<String, dynamic> toMap() {
     return {

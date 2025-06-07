@@ -27,11 +27,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   static const String _keyTimerDuration = 'game_timer_duration';
   static const String _keyImpostorsKnowEachOther = 'game_impostors_know_each_other';
   
-  // Print a check at startup
-  static void _checkKeys() {
-    print('=== Key Consistency Check ===');
-    print('- In GameBloc: _keyImpostorCount = $_keyImpostorCount');
-  }
 
   GameBloc({
     required this.gameRepository,
@@ -48,8 +43,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     on<CreateGameWithCategories>(_onCreateGameWithCategories);
     on<CreateGameFromGroupWithCategories>(_onCreateGameFromGroupWithCategories);
 
-    // Print key check
-    _checkKeys();
     
     // Load saved settings when bloc is created
     _loadSavedSettings();
@@ -74,24 +67,9 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       _lastTimerDuration = loadedTimerDuration ?? 180;
       _lastImpostorsKnowEachOther = loadedImpostorsKnowEachOther ?? false;
       
-      print('=== GameBloc: _loadSavedSettings ===');
-      print('Direct values from SharedPreferences:');
-      print('- impostorCount (direct) = $loadedImpostorCount');
-      print('- saboteurCount (direct) = $loadedSaboteurCount'); // 🆕 NEW: Debug print
-      print('- roundCount (direct) = $loadedRoundCount');
-      print('- timerDuration (direct) = $loadedTimerDuration');
-      print('- impostorsKnowEachOther (direct) = $loadedImpostorsKnowEachOther');
-      print('');
-      print('Final values with defaults applied:');
-      print('- _lastImpostorCount = $_lastImpostorCount');
-      print('- _lastSaboteurCount = $_lastSaboteurCount'); // 🆕 NEW: Debug print
-      print('- _lastRoundCount = $_lastRoundCount');
-      print('- _lastTimerDuration = $_lastTimerDuration');
-      print('- _lastImpostorsKnowEachOther = $_lastImpostorsKnowEachOther');
       
     } catch (e) {
       // If loading fails, we'll use the default values
-      print('Failed to load game settings: $e');
     }
   }
 
@@ -105,7 +83,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       await prefs.setInt(_keyTimerDuration, _lastTimerDuration);
       await prefs.setBool(_keyImpostorsKnowEachOther, _lastImpostorsKnowEachOther);
     } catch (e) {
-      print('Failed to save game settings: $e');
+      // Failed to save game settings
     }
   }
 
@@ -116,7 +94,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     emit(GameLoading());
 
     try {
-      print('_onCreateGame: Creating game with playerCount=${event.playerCount}, impostorCount=${event.impostorCount}');
       
       // Store user settings for future use
       _lastImpostorCount = event.impostorCount;
@@ -300,45 +277,31 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     CompleteGame event,
     Emitter<GameState> emit,
   ) async {
-    print('=== GameBloc: _onCompleteGame START ===');
-    print('Game ID: ${event.gameId}');
     
     emit(GameLoading());
 
     try {
-      print('Updating game state to FINISHED...');
       await gameRepository.updateGameState(
         event.gameId,
         DatabaseConstants.gameStateFinished,
       );
-      print('Game state updated successfully');
 
       final game = await gameRepository.getGameById(event.gameId);
-      print('Retrieved game after update: ${game?.state}');
 
       if (game == null) {
-        print('ERROR: Game not found after completion');
         emit(const GameError('Spiel nicht gefunden'));
         return;
       }
 
-      print('Loading players for final scores...');
       final players = await gameRepository.getPlayersByGameId(game.id);
-      print('Found ${players.length} players');
       
       players.sort((a, b) => b.score.compareTo(a.score));
       
-      print('Determining winner...');
       final Player winner = scoreCalculator.determineWinner(players);
-      print('Winner: ${winner.name} with ${winner.score} points');
       
       final Map<String, int> finalScores = await gameRepository.getFinalScores(game.id);
-      print('Final scores loaded: $finalScores');
 
       final winnerNames = players.take(3).map((p) => p.name).toList();
-      print('Top 3 winners: $winnerNames');
-
-      print('Emitting GameCompleted state...');
       emit(GameCompleted(
         game: game.copyWith(state: DatabaseConstants.gameStateFinished),
         winnerNames: winnerNames,
@@ -346,11 +309,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         finalScores: finalScores,
         winnerId: winner.id,
       ));
-      print('=== GameBloc: _onCompleteGame COMPLETED ===');
     } catch (e) {
-      print('=== GameBloc: _onCompleteGame ERROR ===');
-      print('Error: $e');
-      print('Stack trace: ${StackTrace.current}');
       emit(GameError('Fehler beim Abschließen des Spiels: $e'));
     }
   }
@@ -380,28 +339,19 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       // Make sure we have the latest saved settings
       await _loadSavedSettings();
 
-      // Debug print to see what settings are being loaded at this point
-      print('=== GameBloc: _onCreateGameFromGroup ===');
-      print('Initial impostorCount from saved settings = $_lastImpostorCount, playerCount = $playerCount');
 
       // Get user-selected impostor count without overriding
       int impostorCount = _lastImpostorCount;
       
       // Only enforce basic validation - impostorCount can't exceed playerCount-2
       if (impostorCount > playerCount - 2) {
-        print('GameBloc: Warning: Impostor count ($impostorCount) is too high for player count ($playerCount).');
-        print('For a valid game, we need at least 2 non-impostors. Adjusting to ${playerCount - 2}.');
         impostorCount = playerCount - 2;
       }
       
       // Special case to ensure user's intent is honored
       if (playerCount == 5 && _lastImpostorCount == 3) {
-        print('GameBloc: Special case detected - user wants 3 impostors with 5 players.');
-        print('This is valid (3 impostors + 2 civilians) so we will honor this request.');
         impostorCount = 3;
       }
-      
-      print('GameBloc: Final impostor count to use = $impostorCount');
       
       // Create the game with user settings or defaults
       final game = await gameRepository.createGame(
@@ -437,7 +387,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         return;
       }
 
-      print('GameBloc: Game created and updated successfully. Final impostor count = ${updatedGame.impostorCount}');
       emit(GameCreated(updatedGame));
     } catch (e) {
       emit(GameError('Fehler beim Erstellen des Spiels aus Gruppe: ${e.toString()}'));
@@ -451,7 +400,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     emit(GameLoading());
 
     try {
-      print('_onCreateGameWithCategories: Creating game with categories ${event.selectedCategoryIds}');
       
       // Store user settings for future use
       _lastImpostorCount = event.impostorCount;
@@ -463,8 +411,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       // Save settings to SharedPreferences
       await _saveSettings();
 
-      print('🔍 DEBUG: About to call gameRepository.createGameWithCategories');
-      print('Selected categories being passed: ${event.selectedCategoryIds}');
       
       final game = await gameRepository.createGameWithCategories(
         playerCount: event.playerCount,
@@ -476,17 +422,9 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         selectedCategoryIds: event.selectedCategoryIds,
       );
       
-      print('🔍 DEBUG: Game created with ID: ${game.id}');
-      print('Selected categories in created game: ${game.selectedCategoryIds}');
-      
-      // Verify the game was stored correctly by reading it back
-      final verifyGame = await gameRepository.getGameById(game.id);
-      print('🔍 DEBUG: Game retrieved from DB for verification:');
-      print('Retrieved selectedCategoryIds: ${verifyGame?.selectedCategoryIds}');
 
       emit(GameCreated(game));
     } catch (e) {
-      print('❌ ERROR in _onCreateGameWithCategories: $e');
       emit(GameError('Fehler beim Erstellen des Spiels: $e'));
     }
   }
@@ -499,7 +437,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     
     try {
       final int playerCount = event.playerNames.length;
-      print('_onCreateGameFromGroupWithCategories: Creating game from group with categories ${event.selectedCategoryIds}');
       
       // Store user settings for future use
       _lastImpostorCount = event.impostorCount;
@@ -546,7 +483,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         return;
       }
 
-      print('GameBloc: Game created from group with categories successfully');
       emit(GameCreated(updatedGame));
     } catch (e) {
       emit(GameError('Fehler beim Erstellen des Spiels aus Gruppe: ${e.toString()}'));

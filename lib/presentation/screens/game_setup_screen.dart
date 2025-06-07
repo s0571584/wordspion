@@ -19,7 +19,7 @@ import 'package:wortspion/presentation/widgets/app_slider.dart';
 import 'package:wortspion/presentation/widgets/enhanced_slider.dart';
 import 'package:wortspion/presentation/widgets/role_distribution_visualizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:math' as Math;
+import 'dart:math' as math;
 
 @RoutePage()
 class GameSetupScreen extends StatefulWidget {
@@ -82,24 +82,24 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   // 🆕 NEW: Helper method to validate role counts
   void _validateRoleCounts() {
     // Ensure at least 3 players
-    _playerCount = Math.max(3, _playerCount);
+    _playerCount = math.max(3, _playerCount);
 
     // At least 1 civilian is required
-    final maxSpecialRoles = Math.max(1, _playerCount - 1);
+    final maxSpecialRoles = math.max(1, _playerCount - 1);
 
     // Make sure impostorCount is at least 1
-    _impostorCount = Math.max(1, _impostorCount);
+    _impostorCount = math.max(1, _impostorCount);
 
     // Total special roles can't exceed maxSpecialRoles
     if (_impostorCount + _saboteurCount > maxSpecialRoles) {
       // Prioritize keeping impostors over saboteurs
-      _impostorCount = Math.min(_impostorCount, maxSpecialRoles);
-      _saboteurCount = Math.max(0, Math.min(_saboteurCount, maxSpecialRoles - _impostorCount));
+      _impostorCount = math.min(_impostorCount, maxSpecialRoles);
+      _saboteurCount = math.max(0, math.min(_saboteurCount, maxSpecialRoles - _impostorCount));
     }
 
     // Final validation to ensure valid ranges
-    _impostorCount = _impostorCount.clamp(1, Math.max(1, _playerCount - 1));
-    _saboteurCount = _saboteurCount.clamp(0, Math.max(0, _playerCount - _impostorCount - 1));
+    _impostorCount = _impostorCount.clamp(1, math.max(1, _playerCount - 1));
+    _saboteurCount = _saboteurCount.clamp(0, math.max(0, _playerCount - _impostorCount - 1));
   }
 
   Future<void> _loadSettings() async {
@@ -139,18 +139,9 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       await prefs.setInt(_keyTimerDuration, _timerDuration);
       await prefs.setBool(_keyImpostorsKnowEachOther, _impostorsKnowEachOther);
 
-      print('=== GameSetupScreen: _saveSettings ===');
-      print('Saved settings to SharedPreferences:');
-      print('- playerCount = $_playerCount');
-      print('- impostorCount = $_impostorCount (THIS IS THE KEY VALUE!)');
-      print('- saboteurCount = $_saboteurCount'); // 🆕 NEW: Debug print saboteur count
-      print('- roundCount = $_roundCount');
-      print('- timerDuration = $_timerDuration');
-      print('- impostorsKnowEachOther = $_impostorsKnowEachOther');
 
       // Double check if it was actually saved by retrieving it again
       final savedImpostorCount = prefs.getInt(_keyImpostorCount);
-      print('Verification - Retrieved impostorCount from SharedPreferences: $savedImpostorCount');
 
       // Now ensure GameBloc receives these updated settings by updating its SettingsBloc
       try {
@@ -165,10 +156,8 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                   impostorsKnowEachOther: _impostorsKnowEachOther,
                 ),
               );
-          print('- Updated SettingsBloc with new settings');
         }
       } catch (e) {
-        print('Note: Unable to update SettingsBloc - may not be mounted yet: $e');
       }
 
       debugPrint('Saved settings to SharedPreferences');
@@ -321,7 +310,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'von ${Math.max(1, _playerCount - 1 - _saboteurCount)} möglich',
+                'von ${math.max(1, _playerCount - 1 - _saboteurCount)} möglich',
                 style: AppTypography.caption.copyWith(
                   color: Colors.red.shade700,
                   fontWeight: FontWeight.w500,
@@ -334,15 +323,14 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         EnhancedSlider(
           value: _impostorCount.toDouble(),
           min: 1,
-          max: Math.max(1, _playerCount - _saboteurCount - 1).toDouble(),
-          divisions: Math.max(1, _playerCount - _saboteurCount - 2),
+          max: math.max(1, _playerCount - _saboteurCount - 1).toDouble(),
+          divisions: math.max(1, _playerCount - _saboteurCount - 2),
           activeColor: Colors.red,
           onChanged: (value) {
             setState(() {
               _impostorCount = value.toInt();
               // Validate role counts to ensure saboteur count is still valid
               _validateRoleCounts();
-              print('GameSetupScreen: Impostor count set to: $_impostorCount for $_playerCount players (saboteurs: $_saboteurCount)');
 
               // Save settings immediately when changed
               _saveSettings();
@@ -364,7 +352,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'von ${Math.max(0, _playerCount - _impostorCount - 1)} möglich',
+                'von ${math.max(0, _playerCount - _impostorCount - 1)} möglich',
                 style: AppTypography.caption.copyWith(
                   color: Colors.orange.shade700,
                   fontWeight: FontWeight.w500,
@@ -377,13 +365,12 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         EnhancedSlider(
           value: _saboteurCount.toDouble(),
           min: 0,
-          max: Math.max(0, _playerCount - _impostorCount - 1).toDouble(),
-          divisions: Math.max(1, _playerCount - _impostorCount - 1),
+          max: math.max(0, _playerCount - _impostorCount - 1).toDouble(),
+          divisions: math.max(1, _playerCount - _impostorCount - 1),
           activeColor: Colors.orange,
           onChanged: (value) {
             setState(() {
               _saboteurCount = value.toInt();
-              print('GameSetupScreen: Saboteur count set to: $_saboteurCount for $_playerCount players (impostors: $_impostorCount)');
 
               // Save settings immediately when changed
               _saveSettings();

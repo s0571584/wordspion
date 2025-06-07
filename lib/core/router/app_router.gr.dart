@@ -15,6 +15,12 @@ abstract class _$AppRouter extends RootStackRouter {
 
   @override
   final Map<String, PageFactory> pagesMap = {
+    AuthSplashRoute.name: (routeData) {
+      return AutoRoutePage<dynamic>(
+        routeData: routeData,
+        child: const AuthSplashScreen(),
+      );
+    },
     CategorySelectionRoute.name: (routeData) {
       final args = routeData.argsAs<CategorySelectionRouteArgs>();
       return AutoRoutePage<dynamic>(
@@ -23,6 +29,7 @@ abstract class _$AppRouter extends RootStackRouter {
           key: args.key,
           playerCount: args.playerCount,
           impostorCount: args.impostorCount,
+          saboteurCount: args.saboteurCount,
           roundCount: args.roundCount,
           timerDuration: args.timerDuration,
           impostorsKnowEachOther: args.impostorsKnowEachOther,
@@ -86,6 +93,38 @@ abstract class _$AppRouter extends RootStackRouter {
         child: const HomeScreen(),
       );
     },
+    LoginRoute.name: (routeData) {
+      return AutoRoutePage<dynamic>(
+        routeData: routeData,
+        child: const LoginScreen(),
+      );
+    },
+    MultiplayerGameModeRoute.name: (routeData) {
+      return AutoRoutePage<dynamic>(
+        routeData: routeData,
+        child: const MultiplayerGameModeScreen(),
+      );
+    },
+    MultiplayerGameRoute.name: (routeData) {
+      final args = routeData.argsAs<MultiplayerGameRouteArgs>();
+      return AutoRoutePage<dynamic>(
+        routeData: routeData,
+        child: MultiplayerGameScreen(
+          key: args.key,
+          roomId: args.roomId,
+        ),
+      );
+    },
+    MultiplayerLobbyRoute.name: (routeData) {
+      final args = routeData.argsAs<MultiplayerLobbyRouteArgs>();
+      return AutoRoutePage<dynamic>(
+        routeData: routeData,
+        child: MultiplayerLobbyScreen(
+          key: args.key,
+          roomId: args.roomId,
+        ),
+      );
+    },
     PlayerGroupsRoute.name: (routeData) {
       return AutoRoutePage<dynamic>(
         routeData: routeData,
@@ -100,6 +139,18 @@ abstract class _$AppRouter extends RootStackRouter {
         child: PlayerRegistrationScreen(
           key: args.key,
           game: args.game,
+        ),
+      );
+    },
+    ProfileSetupRoute.name: (routeData) {
+      final args = routeData.argsAs<ProfileSetupRouteArgs>();
+      return AutoRoutePage<dynamic>(
+        routeData: routeData,
+        child: ProfileSetupScreen(
+          key: args.key,
+          userId: args.userId,
+          email: args.email,
+          name: args.name,
         ),
       );
     },
@@ -167,12 +218,27 @@ abstract class _$AppRouter extends RootStackRouter {
 }
 
 /// generated route for
+/// [AuthSplashScreen]
+class AuthSplashRoute extends PageRouteInfo<void> {
+  const AuthSplashRoute({List<PageRouteInfo>? children})
+      : super(
+          AuthSplashRoute.name,
+          initialChildren: children,
+        );
+
+  static const String name = 'AuthSplashRoute';
+
+  static const PageInfo<void> page = PageInfo<void>(name);
+}
+
+/// generated route for
 /// [CategorySelectionScreen]
 class CategorySelectionRoute extends PageRouteInfo<CategorySelectionRouteArgs> {
   CategorySelectionRoute({
     Key? key,
     required int playerCount,
     required int impostorCount,
+    int saboteurCount = 0,
     required int roundCount,
     required int timerDuration,
     required bool impostorsKnowEachOther,
@@ -184,6 +250,7 @@ class CategorySelectionRoute extends PageRouteInfo<CategorySelectionRouteArgs> {
             key: key,
             playerCount: playerCount,
             impostorCount: impostorCount,
+            saboteurCount: saboteurCount,
             roundCount: roundCount,
             timerDuration: timerDuration,
             impostorsKnowEachOther: impostorsKnowEachOther,
@@ -203,6 +270,7 @@ class CategorySelectionRouteArgs {
     this.key,
     required this.playerCount,
     required this.impostorCount,
+    this.saboteurCount = 0,
     required this.roundCount,
     required this.timerDuration,
     required this.impostorsKnowEachOther,
@@ -215,6 +283,8 @@ class CategorySelectionRouteArgs {
 
   final int impostorCount;
 
+  final int saboteurCount;
+
   final int roundCount;
 
   final int timerDuration;
@@ -225,7 +295,7 @@ class CategorySelectionRouteArgs {
 
   @override
   String toString() {
-    return 'CategorySelectionRouteArgs{key: $key, playerCount: $playerCount, impostorCount: $impostorCount, roundCount: $roundCount, timerDuration: $timerDuration, impostorsKnowEachOther: $impostorsKnowEachOther, groupPlayerNames: $groupPlayerNames}';
+    return 'CategorySelectionRouteArgs{key: $key, playerCount: $playerCount, impostorCount: $impostorCount, saboteurCount: $saboteurCount, roundCount: $roundCount, timerDuration: $timerDuration, impostorsKnowEachOther: $impostorsKnowEachOther, groupPlayerNames: $groupPlayerNames}';
   }
 }
 
@@ -428,6 +498,110 @@ class HomeRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [LoginScreen]
+class LoginRoute extends PageRouteInfo<void> {
+  const LoginRoute({List<PageRouteInfo>? children})
+      : super(
+          LoginRoute.name,
+          initialChildren: children,
+        );
+
+  static const String name = 'LoginRoute';
+
+  static const PageInfo<void> page = PageInfo<void>(name);
+}
+
+/// generated route for
+/// [MultiplayerGameModeScreen]
+class MultiplayerGameModeRoute extends PageRouteInfo<void> {
+  const MultiplayerGameModeRoute({List<PageRouteInfo>? children})
+      : super(
+          MultiplayerGameModeRoute.name,
+          initialChildren: children,
+        );
+
+  static const String name = 'MultiplayerGameModeRoute';
+
+  static const PageInfo<void> page = PageInfo<void>(name);
+}
+
+/// generated route for
+/// [MultiplayerGameScreen]
+class MultiplayerGameRoute extends PageRouteInfo<MultiplayerGameRouteArgs> {
+  MultiplayerGameRoute({
+    Key? key,
+    required String roomId,
+    List<PageRouteInfo>? children,
+  }) : super(
+          MultiplayerGameRoute.name,
+          args: MultiplayerGameRouteArgs(
+            key: key,
+            roomId: roomId,
+          ),
+          initialChildren: children,
+        );
+
+  static const String name = 'MultiplayerGameRoute';
+
+  static const PageInfo<MultiplayerGameRouteArgs> page =
+      PageInfo<MultiplayerGameRouteArgs>(name);
+}
+
+class MultiplayerGameRouteArgs {
+  const MultiplayerGameRouteArgs({
+    this.key,
+    required this.roomId,
+  });
+
+  final Key? key;
+
+  final String roomId;
+
+  @override
+  String toString() {
+    return 'MultiplayerGameRouteArgs{key: $key, roomId: $roomId}';
+  }
+}
+
+/// generated route for
+/// [MultiplayerLobbyScreen]
+class MultiplayerLobbyRoute extends PageRouteInfo<MultiplayerLobbyRouteArgs> {
+  MultiplayerLobbyRoute({
+    Key? key,
+    required String roomId,
+    List<PageRouteInfo>? children,
+  }) : super(
+          MultiplayerLobbyRoute.name,
+          args: MultiplayerLobbyRouteArgs(
+            key: key,
+            roomId: roomId,
+          ),
+          initialChildren: children,
+        );
+
+  static const String name = 'MultiplayerLobbyRoute';
+
+  static const PageInfo<MultiplayerLobbyRouteArgs> page =
+      PageInfo<MultiplayerLobbyRouteArgs>(name);
+}
+
+class MultiplayerLobbyRouteArgs {
+  const MultiplayerLobbyRouteArgs({
+    this.key,
+    required this.roomId,
+  });
+
+  final Key? key;
+
+  final String roomId;
+
+  @override
+  String toString() {
+    return 'MultiplayerLobbyRouteArgs{key: $key, roomId: $roomId}';
+  }
+}
+
+/// generated route for
 /// [PlayerGroupsScreen]
 class PlayerGroupsRoute extends PageRouteInfo<void> {
   const PlayerGroupsRoute({List<PageRouteInfo>? children})
@@ -477,6 +651,54 @@ class PlayerRegistrationRouteArgs {
   @override
   String toString() {
     return 'PlayerRegistrationRouteArgs{key: $key, game: $game}';
+  }
+}
+
+/// generated route for
+/// [ProfileSetupScreen]
+class ProfileSetupRoute extends PageRouteInfo<ProfileSetupRouteArgs> {
+  ProfileSetupRoute({
+    Key? key,
+    required String userId,
+    String? email,
+    String? name,
+    List<PageRouteInfo>? children,
+  }) : super(
+          ProfileSetupRoute.name,
+          args: ProfileSetupRouteArgs(
+            key: key,
+            userId: userId,
+            email: email,
+            name: name,
+          ),
+          initialChildren: children,
+        );
+
+  static const String name = 'ProfileSetupRoute';
+
+  static const PageInfo<ProfileSetupRouteArgs> page =
+      PageInfo<ProfileSetupRouteArgs>(name);
+}
+
+class ProfileSetupRouteArgs {
+  const ProfileSetupRouteArgs({
+    this.key,
+    required this.userId,
+    this.email,
+    this.name,
+  });
+
+  final Key? key;
+
+  final String userId;
+
+  final String? email;
+
+  final String? name;
+
+  @override
+  String toString() {
+    return 'ProfileSetupRouteArgs{key: $key, userId: $userId, email: $email, name: $name}';
   }
 }
 
